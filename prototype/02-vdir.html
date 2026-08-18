@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><title>02 虚拟目录 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="titlebar"><div class="tb-brand"><span class="tb-paw">🐾</span> <b>MewBox</b></div><div class="tb-win"><span>—</span><span>▢</span><span>✕</span></div></div>
+
+<div class="app">
+  <aside class="left">
+    <div class="panel">
+      <div class="panel-title">📄 文稿 <span class="badge">5</span> <span class="hint">物理平铺，逻辑成树</span></div>
+      <div class="tree">
+        <div class="tree-cat">▾ 技术</div>
+        <div class="tree-item ind"><i class="dot"></i>我的写作工作流 <span class="chip chip-done">done</span></div>
+        <div class="tree-item ind"><i class="dot"></i>注意力时代的阅读 <span class="chip chip-wip">writing</span></div>
+        <div class="tree-cat">▸ 生活</div>
+        <div class="tree-cat dim">▾ 未分类</div>
+        <div class="tree-item ind drag"><i class="dot"></i>深度工作实践记 <span class="chip chip-draft">draft</span><span class="grip">⠿</span></div>
+      </div>
+      <div class="drop-tip">拖到「技术」上松手 → 仅改 frontmatter <code>folder: 技术</code>，不动物理文件</div>
+    </div>
+    <div class="panel"><div class="panel-title">📚 知识库</div></div>
+    <div class="left-search">🔍 全局搜索</div>
+  </aside>
+
+  <main class="main">
+    <div class="menubar"><div class="crumbs">未分类 / <b>深度工作实践记</b></div></div>
+    <div class="editor-wrap"><div class="doc ghost">
+      <h1># 深度工作实践记</h1>
+      <p>…</p>
+    </div></div>
+    <div class="statusbar"><span>拖动右侧文稿改变分类</span><span class="spacer"></span><span class="muted">folder 值聚合生成目录树</span></div>
+  </main>
+
+  <aside class="right">
+    <div class="rtabs"><button class="on">frontmatter</button><button>说明</button></div>
+    <div class="rbody">
+      <div class="rsec"><div class="rsec-t">这篇文稿的 frontmatter</div>
+<pre class="fm">---
+id: 3f2c...
+title: 深度工作实践记
+folder: <b class="hl">未分类 → 技术</b>
+status: draft
+tags: [essay, focus]
+created: 2026-08-10
+---</pre>
+      </div>
+      <div class="rsec"><div class="rsec-t">为什么是虚拟目录</div>
+        <ul class="bul">
+          <li>目录树 = 全体文稿 <code>folder</code> 值聚合，不来自物理扫描</li>
+          <li>改分类只改字段，<b>零物理移动、零引用同步</b></li>
+          <li>物理想平铺或按年份建子目录都行</li>
+          <li>folder 为空 → 进入「未分类」</li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>

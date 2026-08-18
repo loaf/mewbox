@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><title>07 AI 查错/润色 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="titlebar"><div class="tb-brand"><span class="tb-paw">🐾</span> <b>MewBox</b></div><div class="tb-win"><span>—</span><span>▢</span><span>✕</span></div></div>
+
+<div class="app">
+  <aside class="left slim">
+    <div class="panel"><div class="panel-title">📄 文稿</div><div class="tree"><div class="tree-item active"><i class="dot"></i>深度工作实践记</div></div></div>
+    <div class="left-search">🔍 全局搜索</div>
+  </aside>
+
+  <main class="main">
+    <div class="menubar"><div class="crumbs">未分类 / <b>深度工作实践记</b></div>
+      <div class="menu-actions"><button class="mbtn">历史</button><button class="mbtn">发布版本</button><button class="mbtn accent">全文润色</button><button class="mbtn accent on">查错</button></div>
+    </div>
+    <div class="editor-wrap"><div class="doc">
+      <h1># 深度工作实践记</h1>
+      <p>过去三个月我试着把每天的上午都留给写作。手机放进另一个房间，桌上只有一杯咖啡和这只纸箱里的猫。</p>
+      <p>深度工作最难的从来不是“开始”，而是“不被打断”。真正的阻力来自那些看起来无害的小事……</p>
+      <p>我后来发现，专注不是天赋，而是一种可以训练的<u class="err">习惯——就象这只猫</u>，给它一个足够小的盒子，它反而能安安稳稳待上一下午。</p>
+      <p class="caret-line">▍</p>
+    </div></div>
+    <div class="statusbar"><span>共 486 字</span><span class="spacer"></span><span class="muted">查错发现 1 处</span></div>
+  </main>
+
+  <aside class="right wide">
+    <div class="rtabs"><button class="on">查错</button><button>润色建议</button></div>
+    <div class="rbody">
+      <div class="rsec">
+        <div class="rsec-t">问题（1）· 逐条跳转、采纳或忽略</div>
+        <div class="issue">
+          <div class="issue-head"><span class="itag typo">错别字</span><span class="muted">第 3 段</span></div>
+          <div class="issue-body"><span class="del">就象</span> → <span class="add">就像</span></div>
+          <div class="issue-reason">“像”为正确写法，“象”为错别字。</div>
+          <div class="issue-act"><button class="btn-primary sm">采纳</button><button class="btn-ghost sm">忽略</button><button class="btn-ghost sm">跳转</button></div>
+        </div>
+      </div>
+      <div class="rsec"><div class="rsec-t">说明</div>
+        <ul class="bul">
+          <li>采纳 = 普通编辑，<b>照常进历史</b></li>
+          <li>产出先预览，人工把关后才落盘</li>
+          <li>查错范围：错别字/标点/语法/用词前后不一致/明显逻辑矛盾</li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>

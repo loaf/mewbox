@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><title>06 AI 工作台 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="titlebar">
+  <div class="tb-brand"><span class="tb-paw">🐾</span> <b>MewBox</b></div>
+  <div class="tb-win"><span>—</span><span>▢</span><span>✕</span></div>
+</div>
+
+<div class="app">
+  <aside class="left">
+    <div class="panel"><div class="panel-title">📄 文稿 <span class="badge">5</span></div>
+      <div class="tree">
+        <div class="tree-cat">▸ 技术</div>
+        <div class="tree-item chk"><span class="ck on">✓</span>深度工作实践记</div>
+        <div class="tree-item chk"><span class="ck"> </span>我的写作工作流</div>
+      </div>
+      <div class="tree-foot">🗑 回收站</div>
+    </div>
+    <div class="panel"><div class="panel-title">📚 知识库 <span class="badge">12</span></div>
+      <div class="tree">
+        <div class="tree-cat">▾ 摘录</div>
+        <div class="tree-item chk"><span class="ck on">✓</span>深度工作·第三章摘录</div>
+        <div class="tree-item chk"><span class="ck on">✓</span>心流笔记</div>
+        <div class="tree-item chk"><span class="ck"> </span>数字极简主义</div>
+      </div>
+      <div class="tree-foot">🗑 回收站</div>
+    </div>
+    <div class="left-search">🔍 全局搜索</div>
+  </aside>
+
+  <main class="main">
+    <div class="menubar"><div class="crumbs">未分类 / <b>深度工作实践记</b></div>
+      <div class="menu-actions"><button class="mbtn">历史</button><button class="mbtn">发布版本</button></div>
+    </div>
+    <div class="editor-wrap"><div class="doc ghost">
+      <h1># 深度工作实践记</h1>
+      <p>过去三个月我试着把每天的上午都留给写作……</p>
+      <p>深度工作最难的从来不是“开始”，而是“不被打断”……</p>
+    </div></div>
+    <div class="statusbar"><span>共 486 字</span><span class="spacer"></span><span class="muted">AI 工作台已选 3 项上下文</span></div>
+  </main>
+
+  <!-- AI 工作台（右栏切到本页） -->
+  <aside class="right wide">
+    <div class="rtabs"><button>大纲</button><button>关联与反链</button><button class="on">AI 工作台</button></div>
+    <div class="rbody">
+      <div class="rsec">
+        <div class="rsec-t">上下文（已选 3 项 · 文稿资料同权）</div>
+        <div class="ctx-chip">📄 深度工作实践记 <span class="muted">本文稿</span></div>
+        <div class="ctx-chip">📚 深度工作·第三章摘录</div>
+        <div class="ctx-chip">📚 心流笔记</div>
+        <div class="hint">全量作为上下文 · 不做向量检索 · 预计 3.2k token</div>
+      </div>
+
+      <div class="rsec">
+        <div class="rsec-t">操作</div>
+        <div class="op-grid">
+          <button class="op">总结</button><button class="op">要点提取</button><button class="op">翻译</button>
+          <button class="op">观点对比</button><button class="op on">问答</button><button class="op">附件描述</button>
+        </div>
+        <div class="custom-in">自定义指令… <span class="kbd">如：按这些素材列一个大纲</span></div>
+      </div>
+
+      <div class="rsec chat">
+        <div class="rsec-t">就选中内容问答</div>
+        <div class="msg user">这三份内容里，关于「打断」的共同观点是什么？</div>
+        <div class="msg ai"><span class="typing">▍</span>三份都指向同一个结论：深度工作强调打断的“注意力残留”成本，心流把它解释为意识秩序被打散，你的草稿则把它落到“小事羽毛压垮专注”这个比喻上——<span class="cursor">|</span></div>
+        <div class="send">输入问题… <span class="kbd">Enter 发送</span></div>
+      </div>
+
+      <div class="rsec">
+        <div class="rsec-t">结果去向（人工把关）</div>
+        <div class="act-row">
+          <button class="btn-primary">插入到当前文稿</button>
+          <button class="btn-ghost">存为资料（ai-workbench）</button>
+          <button class="btn-ghost">复制</button>
+        </div>
+        <div class="hint">存为资料将写入 kb/ · 自动标 source: ai-workbench · 可选同时建立关联</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>

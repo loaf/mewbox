@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>01 主编辑器 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 窗口标题栏（Tauri 风格） -->
+<div class="titlebar">
+  <div class="tb-brand">
+    <span class="tb-paw">🐾</span> <b>MewBox</b> <span class="tb-slogan">每一个想法，都值得被写下。</span>
+  </div>
+  <div class="tb-win"><span>—</span><span>▢</span><span>✕</span></div>
+</div>
+
+<div class="app">
+  <!-- ══ 左栏 ══ -->
+  <aside class="left">
+    <div class="left-head">
+      <div class="logo-chip"><span class="paw-ic">🐾</span> MewBox</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📄 文稿 <span class="badge">5</span></div>
+      <div class="tree">
+        <div class="tree-cat">▸ 技术</div>
+        <div class="tree-cat">▸ 生活</div>
+        <div class="tree-item dim">未分类</div>
+        <div class="tree-item"><i class="dot"></i>我的写作工作流</div>
+        <div class="tree-item active"><i class="dot"></i>深度工作实践记 <span class="chip chip-draft">草稿</span></div>
+        <div class="tree-item"><i class="dot"></i>注意力时代的阅读</div>
+      </div>
+      <div class="tree-foot">🗑 回收站</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📚 知识库 <span class="badge">12</span></div>
+      <div class="tree">
+        <div class="tree-cat">▾ Inbox</div>
+        <div class="tree-cat">▸ 摘录</div>
+        <div class="tree-cat">▸ 调研</div>
+      </div>
+      <div class="tree-foot">🗑 回收站</div>
+    </div>
+
+    <div class="left-search">🔍 全局搜索 <span class="kbd">Ctrl K</span></div>
+  </aside>
+
+  <!-- ══ 主编辑区 ══ -->
+  <main class="main">
+    <!-- 文稿菜单栏 -->
+    <div class="menubar">
+      <div class="crumbs">未分类 / <b>深度工作实践记</b></div>
+      <div class="menu-actions">
+        <button class="mbtn">历史</button>
+        <button class="mbtn accent" id="pv-btn">发布版本 <span class="cnt">2</span></button>
+        <button class="mbtn">关联</button>
+        <button class="mbtn">移动</button>
+        <button class="mbtn">导出</button>
+      </div>
+    </div>
+    <div class="subbar">
+      <span class="chip chip-draft">draft</span>
+      <span class="muted">folder: 未分类 · id:3f2c… · 已自动保存 14:32:10</span>
+      <span class="spacer"></span>
+      <span class="seg"><i class="on">源码</i><i>分栏</i><i>预览</i></span>
+    </div>
+
+    <!-- 编辑画布 -->
+    <div class="editor-wrap">
+      <div class="doc">
+        <h1># 深度工作实践记</h1>
+        <p>过去三个月我试着把每天的上午都留给写作。手机放进另一个房间，桌上只有一杯咖啡和这只纸箱里的猫。</p>
+        <p>深度工作最难的从来不是“开始”，而是“不被打断”。<mark class="sel">真正的阻力来自那些看起来无害的小事：一条消息提醒、一次随手刷新、一个突然冒出来的念头。</mark>它们像羽毛一样轻，却能轻易把一整块专注的时间压垮。</p>
+        <p>我后来发现，专注不是天赋，而是一种可以训练的习惯——就像这只猫，给它一个足够小的盒子，它反而能安安稳稳待上一下午。</p>
+        <p class="caret-line">▍</p>
+
+        <!-- AI 浮动工具条（选中文本时出现） -->
+        <div class="ai-fab" id="ai-fab">
+          <span class="fab-cat">🐾</span>
+          <button>改写</button><button>扩写</button><button>缩写</button>
+          <button>改语气</button><button>翻译</button><button>润色</button>
+          <button>查错</button><button class="fab-more">自定义…</button>
+        </div>
+
+        <!-- 尾部关联块 -->
+        <div class="assoc">
+          <div class="assoc-rule"></div>
+          <div class="assoc-tag">&lt;!-- wb:assoc begin --&gt;</div>
+          <div class="assoc-title">## 关联</div>
+          <div class="assoc-row"><span class="assoc-k">关联文稿</span><span class="assoc-v">[[我的写作工作流]]、[[注意力时代的阅读]]</span></div>
+          <div class="assoc-row"><span class="assoc-k">关联资料</span><span class="assoc-v">[深度工作·第三章摘录](../kb/摘录/deepwork-3.md)、[心流笔记](../kb/摘录/flow.md)</span></div>
+          <div class="assoc-row"><span class="assoc-k">发布版本</span><span class="assoc-v">[<span class="wechat-link">公众号版</span>](../.versions/3f2c/publish/wechat.md)、[知乎版](../.versions/3f2c/publish/zhihu.md)</span></div>
+          <div class="assoc-tag">&lt;!-- wb:assoc end --&gt;</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="statusbar">
+      <span>共 486 字</span><span class="sep">·</span><span>Markdown</span><span class="sep">·</span><span>行 4 列 23</span>
+      <span class="spacer"></span><span class="muted">mermaid · KaTeX · 表格</span>
+    </div>
+  </main>
+
+  <!-- ══ 右栏 ══ -->
+  <aside class="right">
+    <div class="rtabs">
+      <button class="on">大纲</button><button>关联与反链</button><button>资料</button><button>AI 工作台</button><button>发布版本</button><button>历史</button>
+    </div>
+    <div class="rbody">
+      <div class="rsec">
+        <div class="rsec-t">大纲</div>
+        <ul class="outline">
+          <li class="lv1 on">一、盒子与专注</li>
+          <li class="lv2">1.1 上午的仪式感</li>
+          <li class="lv2">1.2 打断的代价</li>
+          <li class="lv1">二、训练专注</li>
+          <li class="lv2">2.1 小盒子的隐喻</li>
+          <li class="lv1">三、写在最后</li>
+        </ul>
+      </div>
+      <div class="rsec">
+        <div class="rsec-t">本文关联</div>
+        <div class="rel-chip">📄 我的写作工作流 <span class="rel-from">正文链接</span></div>
+        <div class="rel-chip">📄 注意力时代的阅读 <span class="rel-from">关联块</span></div>
+        <div class="rel-chip kb">📚 深度工作·第三章摘录 <span class="rel-from">关联块</span></div>
+        <div class="rel-chip kb">📚 心流笔记 <span class="rel-from">关联块</span></div>
+      </div>
+      <div class="rsec">
+        <div class="rsec-t">反向链接</div>
+        <div class="rel-chip">📄 注意力时代的阅读 <span class="rel-from">正文引用本文</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- 预览索引入口 -->
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>

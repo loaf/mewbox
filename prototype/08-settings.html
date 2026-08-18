@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><title>08 设置/AI 模型 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="titlebar"><div class="tb-brand"><span class="tb-paw">🐾</span> <b>MewBox</b></div><div class="tb-win"><span>—</span><span>▢</span><span>✕</span></div></div>
+
+<div class="app settings">
+  <aside class="left nav">
+    <div class="nav-i">常规</div>
+    <div class="nav-i on">AI 模型</div>
+    <div class="nav-i">发布目标</div>
+    <div class="nav-i">历史策略</div>
+    <div class="nav-i">备份与迁移</div>
+  </aside>
+
+  <main class="main pad">
+    <h2 class="pg-title">AI 模型</h2>
+
+    <div class="card">
+      <div class="card-t">Providers（API Key 存系统钥匙串，不落盘、不进工作区）</div>
+      <div class="prov"><span class="prov-dot on"></span>OpenAI 兼容 <span class="muted">gpt-4o / gpt-4o-mini</span><span class="key ok">已配置 ✓</span></div>
+      <div class="prov"><span class="prov-dot on"></span>Anthropic <span class="muted">claude-sonnet</span><span class="key ok">已配置 ✓</span></div>
+      <div class="prov"><span class="prov-dot"></span>Ollama（本地·完全离线）<span class="muted">llava / llama3</span><span class="key">未配置</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-t">任务路由（操作类型 → 模型）</div>
+      <table class="tbl">
+        <tr><th>任务</th><th>模型</th><th>说明</th></tr>
+        <tr><td>总结 / 长文</td><td>claude-sonnet</td><td>质量优先</td></tr>
+        <tr><td>改写 / 润色</td><td>gpt-4o</td><td>中高档</td></tr>
+        <tr><td>翻译 / 查错</td><td>gpt-4o-mini</td><td>快、便宜</td></tr>
+        <tr><td>附件描述（视觉）</td><td>gpt-4o（vision）</td><td>多模态</td></tr>
+      </table>
+    </div>
+
+    <div class="card row2">
+      <div class="half">
+        <div class="card-t">预算</div>
+        <div class="fld"><label>日上限</label><input value="$5.00" readonly></div>
+        <div class="fld"><label>月上限</label><input value="$100.00" readonly></div>
+        <div class="fld"><label>超限</label><div class="seg wide"><i class="on">告警</i><i>暂停 AI</i></div></div>
+      </div>
+      <div class="half">
+        <div class="card-t">本月用量（ai_calls 留痕）</div>
+        <div class="usage-bar"><i style="width:38%"></i></div>
+        <div class="muted">$38.20 / $100 · 其中附件描述 $12.10</div>
+        <div class="muted mt">一切 AI 产出先预览，采纳才落盘 · 不建记忆/画像</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>

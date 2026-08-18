@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><title>04 发布版本列表 · MewBox</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dim-bg">
+
+<div class="app center-stage">
+  <!-- 底层：主编辑器占位（示意遮挡） -->
+  <main class="main ghost"></main>
+
+  <!-- 发布版本抽屉（从「发布版本」菜单点开） -->
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">发布版本</div>
+        <div class="drawer-sub">《深度工作实践记》 · 不进左侧列表，仅从此处/关联块进入</div>
+      </div>
+      <button class="x">✕</button>
+    </div>
+
+    <div class="pv-list">
+      <div class="pv-card">
+        <div class="pv-ic wechat">微</div>
+        <div class="pv-mid">
+          <div class="pv-name">公众号版 <span class="chip chip-pub">已发布</span></div>
+          <div class="pv-meta">.versions/3f2c/publish/wechat.md · 历史 8 条 · 发布于 2026-08-12</div>
+          <div class="pv-url">mp.weixin.qq.com/s/xxxxx ↗</div>
+        </div>
+        <div class="pv-act"><button class="mbtn accent">打开</button><button class="mbtn">从文稿同步</button></div>
+      </div>
+
+      <div class="pv-card">
+        <div class="pv-ic zhihu">知</div>
+        <div class="pv-mid">
+          <div class="pv-name">知乎版 <span class="chip chip-dft">草稿</span></div>
+          <div class="pv-meta">.versions/3f2c/publish/zhihu.md · 历史 3 条 · 未发布</div>
+          <div class="pv-url dim">尚未填写发布链接</div>
+        </div>
+        <div class="pv-act"><button class="mbtn accent">打开</button><button class="mbtn">从文稿同步</button></div>
+      </div>
+
+      <div class="pv-add">
+        <button class="btn-primary">＋ 新建发布版本</button>
+        <div class="pv-form">
+          <div class="fld"><label>目标名</label><input value="weibo" readonly><span class="hint">同一目标仅一个版本，重发请用新目标名</span></div>
+          <div class="fld"><label>分叉自</label><div class="seg wide"><i class="on">文稿当前</i><i>历史版本…</i></div></div>
+          <div class="fld"><label>模板</label><div class="seg wide"><i class="on">无</i><i>公众号</i><i>微博</i></div><span class="hint">模板为 backlog 项</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-foot">横幅归属提示：改动不影响母版 · 每个版本独立历史</div>
+  </div>
+</div>
+
+<a class="proto-home" href="index.html">← 所有界面</a>
+</body>
+</html>
