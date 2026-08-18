@@ -67,11 +67,11 @@ describe("AppShell", () => {
 
   test("渲染聚合树数据：目录与未分类", async () => {
     listPostsMock.mockResolvedValue({
-      tree: [
-        { name: "技术", children: { 分布式: { name: "分布式", children: {}, posts: [{ id: "1", title: "笔记", folder: "技术/分布式" }] } }, posts: [] },
-        { name: "未分类", children: {}, posts: [{ id: "2", title: "随想", folder: null }] },
+      tree: [],
+      posts: [
+        { id: "1", title: "笔记", folder: "技术/分布式", status: "draft", tags: [], path: "posts/1.md", updatedAt: "t" },
+        { id: "2", title: "随想", folder: null, status: "draft", tags: [], path: "posts/2.md", updatedAt: "t" },
       ],
-      posts: [],
     });
     render(<AppShell />);
     expect(await screen.findByText("技术")).toBeInTheDocument();
