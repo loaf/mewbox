@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ═══════ MewBox 视觉基调（取自 prototype/css/style.css 设计令牌） ═══════ */
+:root {
+  --bg: #f6f1e8; /* 暖米白 */
+  --cream: #f0e8da;
+  --card: #fffdf9;
+  --line: #e7ddc9;
+  --ink: #4a453f; /* 墨 */
+  --muted: #9a9184;
+  --cat: #6f7787; /* 蓝灰猫 */
+  --cat-dk: #5b6373;
+  --cat-lt: #aeb6c4;
+  --cat-bg: #e9edf2;
+  --box: #c79a63; /* 纸箱 */
+  --box-dk: #a97c46;
+  --green: #6f9a6f;
+  --red: #c26a5a;
+  --r: 12px;
+  --font: "Segoe UI", "Microsoft YaHei", -apple-system, sans-serif;
+  --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  height: 100vh;
+  overflow: hidden;
+}
+
+a {
+  color: var(--cat);
+  text-decoration: none;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 99px;
+}

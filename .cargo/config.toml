@@ -1,0 +1,4 @@
+# 工作区在网络盘（RaiDrive）上，cargo 并行编译/链接会在网络盘上丢失中间对象文件
+# （LNK1181 / rlib 打不开）。target 目录固定到本地盘，产物不入库。
+[build]
+target-dir = "C:/Users/lijun/.mewbox-cargo-target"
