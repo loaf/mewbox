@@ -53,7 +53,8 @@ fn resolve_workspace_path(app: &tauri::AppHandle) -> PathBuf {
     path
 }
 
-/// 从当前目录向上找仓库根（含 package.json + src-tauri 的目录）。
+/// 从当前目录向上找仓库根（含 package.json + src-tauri 的目录）。仅 debug 构建使用。
+#[cfg(debug_assertions)]
 fn find_repo_root() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
