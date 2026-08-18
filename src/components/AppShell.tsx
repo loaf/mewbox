@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../stores/app";
 import { PostTree } from "./PostTree";
 import { NewPostDialog } from "./NewPostDialog";
+import { EditorPane } from "./EditorPane";
+import { OutlinePanel } from "./OutlinePanel";
+import { HistoryPanel } from "./HistoryPanel";
+import { TrashPanel } from "./TrashPanel";
 
 /** 左栏：文稿区（虚拟目录树）/ 回收站入口 / 占位区（知识库、全局搜索随 M3/M5） */
 function LeftColumn({ onCreate }: { onCreate: () => void }) {
@@ -92,13 +96,7 @@ export function AppShell() {
     <div className="flex h-full">
       <LeftColumn onCreate={onCreate} />
       <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
-        {selected ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]" data-testid="editor-placeholder">
-            编辑器（Task 12 落地）
-          </div>
-        ) : (
-          <EmptyState onCreate={onCreate} />
-        )}
+        {selected ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
       </main>
       <aside className="flex w-[288px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
         <div className="flex gap-1 border-b border-[var(--line)] p-2">
@@ -115,10 +113,12 @@ export function AppShell() {
             </button>
           ))}
         </div>
-        <div className="flex-1 p-3 text-xs text-[var(--muted)]" data-testid={`panel-${rightTab}`}>
-          {rightTab === "outline" ? "大纲面板（Task 13 落地）" : "历史面板（Task 14 落地）"}
+        <div className="flex min-h-0 flex-1 flex-col" data-testid={`panel-${rightTab}`}>
+          {rightTab === "outline" ? <OutlinePanel /> : <HistoryPanel />}
         </div>
       </aside>
+
+      <TrashPanel />
 
       <NewPostDialog
         open={creating}

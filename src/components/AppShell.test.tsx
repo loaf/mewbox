@@ -62,7 +62,7 @@ describe("AppShell", () => {
 
     await waitFor(() => expect(createPostMock).toHaveBeenCalledWith("第一篇", undefined));
     await waitFor(() => expect(useApp.getState().selectedId).toBe("p1"));
-    expect(screen.getByTestId("editor-placeholder")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("editor-title")).toHaveValue("第一篇"));
   });
 
   test("渲染聚合树数据：目录与未分类", async () => {

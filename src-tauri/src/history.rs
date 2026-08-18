@@ -242,6 +242,18 @@ pub fn restore(
     Ok(())
 }
 
+/// 读取某份快照的正文（供前端 diff；快照存完整文件，此处剥掉 frontmatter）。
+pub fn read_snapshot_body(
+    ws: &crate::workspace::Workspace,
+    file_id: &str,
+    snapshot_file: &str,
+) -> std::io::Result<String> {
+    let content = std::fs::read_to_string(history_dir(ws, file_id).join(snapshot_file))?;
+    Ok(crate::frontmatter::parse(&content)
+        .map(|(_, body)| body)
+        .unwrap_or(content))
+}
+
 /// 里程碑命名（永久保留标记）。
 pub fn set_milestone(
     ws: &crate::workspace::Workspace,

@@ -120,6 +120,7 @@ pub fn run() {
             commands::list_trash,
             commands::restore_post,
             commands::list_snapshots,
+            commands::read_snapshot,
             commands::restore_snapshot,
             commands::set_snapshot_milestone,
             commands::save_pasted_image,

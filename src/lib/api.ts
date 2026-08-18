@@ -92,6 +92,8 @@ export const api = {
   listTrash: (): Promise<TrashItem[]> => invoke("list_trash"),
   restorePost: (id: string): Promise<PostSummary> => invoke("restore_post", { id }),
   listSnapshots: (id: string): Promise<SnapshotEntry[]> => invoke("list_snapshots", { id }),
+  readSnapshot: (id: string, snapshotFile: string): Promise<string> =>
+    invoke("read_snapshot", { id, snapshotFile }),
   restoreSnapshot: (id: string, snapshotFile: string): Promise<PostContent> =>
     invoke("restore_snapshot", { id, snapshotFile }),
   setSnapshotMilestone: (id: string, snapshotFile: string, name: string): Promise<void> =>

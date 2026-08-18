@@ -395,6 +395,10 @@ impl AppState {
         self.with_idx(|idx| Ok(history::list_snapshots(&self.ws, idx, id)?))
     }
 
+    pub fn read_snapshot_body(&self, id: &str, snapshot_file: &str) -> AppResult<String> {
+        Ok(history::read_snapshot_body(&self.ws, id, snapshot_file)?)
+    }
+
     pub fn restore_snapshot(&self, id: &str, snapshot_file: &str) -> AppResult<PostContent> {
         self.with_idx(|idx| Ok(history::restore(&self.ws, idx, id, snapshot_file)?))?;
         self.read_post(id)

@@ -51,10 +51,9 @@ async function mount(posts: PostSummary[]) {
 describe("PostTree", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listTrashDefault();
+    apiMocks.listPosts.mockResolvedValue({ tree: [], posts: [] });
+    apiMocks.listTrash.mockResolvedValue([]);
   });
-
-  const listTrashDefault = () => apiMocks.listTrash.mockResolvedValue([]);
 
   test("渲染聚合树：目录 > 子目录 > 文稿，未分类固定最后", async () => {
     await mount([P1, P2, P3]);

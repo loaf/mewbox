@@ -97,6 +97,15 @@ pub fn list_snapshots(
 }
 
 #[tauri::command]
+pub fn read_snapshot(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    snapshot_file: String,
+) -> AppResult<String> {
+    state.read_snapshot_body(&id, &snapshot_file)
+}
+
+#[tauri::command]
 pub fn restore_snapshot(
     state: tauri::State<'_, AppState>,
     id: String,

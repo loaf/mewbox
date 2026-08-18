@@ -15,6 +15,9 @@ export default defineConfig(async () => ({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // 网络盘上 fork worker 启动（加载整个模块图）会超时：用线程池 + 关闭文件并行
+    pool: "threads",
+    fileParallelism: false,
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
