@@ -44,6 +44,15 @@ pub struct SearchHit {
     pub title: String,
 }
 
+/// 链接图边（缓存性质，从磁盘全量重建）：kind ∈ wiki|assoc。
+#[derive(Debug, Clone, Serialize)]
+pub struct LinkRow {
+    pub from_id: String,
+    pub to_id: Option<String>,
+    pub raw_title: String,
+    pub kind: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scope {
     Posts,
@@ -80,6 +89,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
   title_tokens, body_tokens, content='', contentless_delete=1
 );
 CREATE TABLE IF NOT EXISTS fts_map(file_id TEXT PRIMARY KEY, fts_rowid INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS links(
+  from_id TEXT NOT NULL,
+  to_id TEXT,
+  raw_title TEXT NOT NULL,
+  kind TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_links_to ON links(to_id);
 "#;
 
 impl Index {
@@ -294,7 +310,42 @@ impl Index {
         }
         self.conn.execute("DELETE FROM fts_map WHERE file_id=?1", [id])?;
         self.conn.execute("DELETE FROM snapshots WHERE file_id=?1", [id])?;
+        self.conn.execute("DELETE FROM links WHERE from_id=?1 OR to_id=?1", [id])?;
         Ok(())
+    }
+
+    /// 链接图全量替换（磁盘为准，机制决策 6）。
+    pub fn replace_links(&self, rows: &[LinkRow]) -> Result<(), Error> {
+        self.conn.execute("DELETE FROM links", [])?;
+        {
+            let mut stmt = self
+                .conn
+                .prepare("INSERT INTO links(from_id, to_id, raw_title, kind) VALUES(?1,?2,?3,?4)")?;
+            for r in rows {
+                stmt.execute(params![r.from_id, r.to_id, r.raw_title, r.kind])?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 某文件的反向链接（链接图缓存查询）。
+    pub fn links_to(&self, id: &str) -> Result<Vec<LinkRow>, Error> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT from_id, to_id, raw_title, kind FROM links WHERE to_id=?1")?;
+        let rows = stmt.query_map([id], |r| {
+            Ok(LinkRow {
+                from_id: r.get(0)?,
+                to_id: r.get(1)?,
+                raw_title: r.get(2)?,
+                kind: r.get(3)?,
+            })
+        })?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
     }
 }
 

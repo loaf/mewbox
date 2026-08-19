@@ -10,13 +10,17 @@ use crate::workspace::Workspace;
 pub struct ScanReport {
     /// 磁盘上扫到的有效文稿（元数据 + 正文）
     pub posts: Vec<(FileMeta, String)>,
-    /// id 相同但路径变化（外部改名 → 重联，DESIGN §3.3）
+    /// 磁盘上扫到的有效资料（kb/，kind=material；物理树即分类，DESIGN §6）
+    pub materials: Vec<(FileMeta, String)>,
+    /// id 相同但路径变化（外部改名 → 重联，DESIGN §3.3；posts 与 kb 合并判定）
     pub path_changes: Vec<PathChange>,
-    /// 无 frontmatter id 的外部新建文件（提示导入或补 id，DESIGN §7.4）
+    /// posts/ 无 frontmatter id 的外部新建文件（提示导入或补 id，DESIGN §7.4）
     pub pending_import: Vec<PendingFile>,
+    /// kb/ 无 frontmatter id 的外部新建文件
+    pub material_pending_import: Vec<PendingFile>,
     /// 同名文件（不同子目录同 slug）冲突提示
     pub slug_conflicts: Vec<String>,
-    /// 索引里有、磁盘上没有的 id（missing 标记，记录不删）
+    /// 索引里有、磁盘上没有的 id（missing 标记，记录不删；posts+materials）
     pub missing: Vec<String>,
     /// 无主发布版本（base 文稿缺失；base 在回收站的不算，DESIGN-REVIEW 遗漏 4）
     pub orphan_versions: Vec<String>,
@@ -119,12 +123,68 @@ pub fn scan_posts(ws: &Workspace) -> Result<ScanReport, std::io::Error> {
     Ok(report)
 }
 
-/// 与索引对比：外部改名（路径变化）与磁盘缺失。
+/// 扫描 kb/（递归，排除 .trash/）：资料物理树（DESIGN §6），folder 由目录派生。
+pub fn scan_materials(ws: &Workspace) -> Result<ScanReport, std::io::Error> {
+    let mut report = ScanReport::default();
+    for entry in walkdir::WalkDir::new(ws.root.join("kb"))
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            !(e.depth() > 0 && name == ".trash")
+        })
+    {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if entry.path().extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+        let rel_path = rel(&ws.root, entry.path());
+        let content = std::fs::read_to_string(entry.path())?;
+        let (fm, body) = match frontmatter::parse(&content) {
+            Ok(v) => v,
+            Err(_) => {
+                report.material_pending_import.push(PendingFile { path: rel_path });
+                continue;
+            }
+        };
+        if fm.is_new() {
+            report.material_pending_import.push(PendingFile { path: rel_path });
+            continue;
+        }
+        report.materials.push((
+            FileMeta {
+                id: fm.id.to_string(),
+                kind: "material".into(),
+                path: rel_path.clone(),
+                title: fm.title,
+                folder: crate::materials::folder_of(&rel_path),
+                status: fm.status.to_string(),
+                tags: serde_json::to_string(&fm.tags).unwrap_or_else(|_| "[]".into()),
+                created_at: fm.created,
+                updated_at: fm.updated,
+                deleted_at: None,
+                hash: file_hash(&content),
+                missing: false,
+            },
+            body,
+        ));
+    }
+    Ok(report)
+}
+
+/// 与索引对比：外部改名（路径变化）与磁盘缺失（posts 与 kb 合并判定）。
 pub fn diff_with_index(idx: &Index, report: &mut ScanReport) -> Result<(), crate::index::Error> {
-    let indexed = idx.list_by_kind("post", true)?;
+    let mut indexed = idx.list_by_kind("post", true)?;
+    indexed.extend(idx.list_by_kind("material", true)?);
     let scanned: HashMap<&str, &str> = report
         .posts
         .iter()
+        .chain(report.materials.iter())
         .map(|(m, _)| (m.id.as_str(), m.path.as_str()))
         .collect();
     let index_map: HashMap<String, String> = indexed
@@ -151,9 +211,9 @@ pub fn diff_with_index(idx: &Index, report: &mut ScanReport) -> Result<(), crate
     Ok(())
 }
 
-/// 应用扫描结果到索引：upsert 扫到的、标记缺失的。
+/// 应用扫描结果到索引：upsert 扫到的（posts+materials）、标记缺失的。
 pub fn apply_to_index(idx: &Index, report: &ScanReport) -> Result<(), crate::index::Error> {
-    for (m, body) in &report.posts {
+    for (m, body) in report.posts.iter().chain(report.materials.iter()) {
         idx.upsert_file(m, body)?;
     }
     for id in &report.missing {
@@ -301,5 +361,66 @@ mod tests {
         apply_to_index(&idx, &report).unwrap();
         assert_eq!(report.missing, vec![ID_1.to_string()]);
         assert!(idx.get_file(ID_1).unwrap().unwrap().missing);
+    }
+
+    const ID_M: &str = "3f2c0000-0000-0000-0000-0000000000aa";
+
+    #[test]
+    fn scan_materials_tree_and_pending() {
+        let (_dir, ws) = ws_with();
+        write_md(&ws, "kb/研究/笔记.md", Some(&fm(ID_M, "研究笔记")), "内容");
+        write_md(&ws, "kb/Inbox/收件.md", None, "无 id");
+        write_md(
+            &ws,
+            "kb/.trash/旧.md",
+            Some(&fm("3f2c0000-0000-0000-0000-0000000000bb", "旧")),
+            "回收站",
+        );
+        let report = scan_materials(&ws).unwrap();
+        assert_eq!(report.materials.len(), 1);
+        let (m, _) = &report.materials[0];
+        assert_eq!(m.kind, "material");
+        assert_eq!(m.path, "kb/研究/笔记.md");
+        assert_eq!(m.folder.as_deref(), Some("研究"), "folder 由物理目录派生");
+        assert_eq!(report.material_pending_import.len(), 1);
+        assert_eq!(report.material_pending_import[0].path, "kb/Inbox/收件.md");
+    }
+
+    #[test]
+    fn material_external_rename_relinks_across_kinds() {
+        let (_dir, ws) = ws_with();
+        let idx = Index::open_in_memory().unwrap();
+        idx.upsert_file(
+            &FileMeta {
+                id: ID_M.into(),
+                kind: "material".into(),
+                path: "kb/旧名.md".into(),
+                title: "M".into(),
+                folder: None,
+                status: "draft".into(),
+                tags: "[]".into(),
+                created_at: String::new(),
+                updated_at: String::new(),
+                deleted_at: None,
+                hash: String::new(),
+                missing: false,
+            },
+            "",
+        )
+        .unwrap();
+        write_md(&ws, "kb/研究/新名.md", Some(&fm(ID_M, "M")), "内容");
+        let mut report = scan_posts(&ws).unwrap();
+        let m = scan_materials(&ws).unwrap();
+        report.materials = m.materials;
+        report.material_pending_import = m.material_pending_import;
+        diff_with_index(&idx, &mut report).unwrap();
+        apply_to_index(&idx, &report).unwrap();
+        assert_eq!(report.path_changes.len(), 1);
+        assert_eq!(report.path_changes[0].old_path, "kb/旧名.md");
+        assert_eq!(report.path_changes[0].new_path, "kb/研究/新名.md");
+        assert_eq!(
+            idx.get_file(ID_M).unwrap().unwrap().folder.as_deref(),
+            Some("研究")
+        );
     }
 }

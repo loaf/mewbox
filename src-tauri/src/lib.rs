@@ -1,10 +1,13 @@
 mod commands;
 
 pub mod assets;
+pub mod assoc;
 pub mod config;
 pub mod frontmatter;
 pub mod history;
 pub mod index;
+pub mod links;
+pub mod materials;
 pub mod publish;
 pub mod scan;
 pub mod state;

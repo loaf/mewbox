@@ -14,6 +14,9 @@ pub struct Frontmatter {
     pub created: String,
     pub updated: String,
     pub extra: Mapping,
+    /// 仅内存标记，不参与 YAML 解析/序列化（机制决策 5）：
+    /// 资料稀疏序列化——status=draft 且 tags 为空时两字段省略。
+    pub sparse: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -54,6 +57,7 @@ impl Default for Frontmatter {
             created: String::new(),
             updated: String::new(),
             extra: Mapping::new(),
+            sparse: false,
         }
     }
 }
@@ -75,6 +79,7 @@ impl Frontmatter {
             created: now.clone(),
             updated: now,
             extra: Mapping::new(),
+            sparse: false,
         }
     }
 
@@ -90,8 +95,12 @@ impl Frontmatter {
         if let Some(folder) = &self.folder {
             out.push_str(&format!("folder: {}\n", yaml_scalar(folder)));
         }
-        out.push_str(&format!("status: {}\n", self.status));
-        out.push_str(&format!("tags: [{}]\n", self.tags.iter().map(|t| yaml_scalar(t)).collect::<Vec<_>>().join(", ")));
+        // 稀疏序列化（机制决策 5）：资料省略默认 status/tags
+        let omit_defaults = self.sparse && self.status == PostStatus::Draft && self.tags.is_empty();
+        if !omit_defaults {
+            out.push_str(&format!("status: {}\n", self.status));
+            out.push_str(&format!("tags: [{}]\n", self.tags.iter().map(|t| yaml_scalar(t)).collect::<Vec<_>>().join(", ")));
+        }
         if !self.created.is_empty() {
             out.push_str(&format!("created: {}\n", yaml_scalar(&self.created)));
         }
@@ -303,5 +312,34 @@ mod tests {
         assert_eq!(fm.folder.as_deref(), Some("技术/分布式"));
         assert!(!fm.created.is_empty());
         assert_eq!(fm.created, fm.updated);
+    }
+
+    #[test]
+    fn sparse_serialization_omits_defaults_only() {
+        let mut fm = Frontmatter::new_post("设计素材", None);
+        fm.sparse = true;
+        let out = fm.to_content("正文");
+        assert!(!out.contains("status:"), "默认 status 应省略: {out}");
+        assert!(!out.contains("tags:"), "空 tags 应省略: {out}");
+        // 解析回来仍是 Draft/空 tags
+        let (fm2, body) = parse(&out).unwrap();
+        assert_eq!(fm2.status, PostStatus::Draft);
+        assert!(fm2.tags.is_empty());
+        assert_eq!(body, "正文");
+
+        // 非默认状态不省略
+        fm.status = PostStatus::Writing;
+        assert!(fm.to_content("x").contains("status: writing"));
+        // 有 tags 不省略
+        fm.status = PostStatus::Draft;
+        fm.tags = vec!["参考".into()];
+        assert!(fm.to_content("x").contains("tags: [参考]"));
+
+        // 非 sparse（文稿）全量序列化
+        fm.tags.clear();
+        fm.sparse = false;
+        let full = fm.to_content("x");
+        assert!(full.contains("status: draft"));
+        assert!(full.contains("tags: []"));
     }
 }
