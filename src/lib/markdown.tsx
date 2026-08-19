@@ -76,23 +76,30 @@ export const previewRehypePlugins: PluggableList = [
   [rehypeHighlight, { detect: false }],
 ];
 
-/** mermaid 代码块：懒加载渲染 */
+/** mermaid 代码块：懒加载渲染。
+ *  live 模式下每次按键都会重挂/重渲染，mermaid.render 的 id 必须每次唯一，
+ *  否则与上一次渲染冲突报错（表现为图不出现）。 */
 function MermaidBlock({ code }: { code: string }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const idRef = useRef(`mmd-${Math.random().toString(36).slice(2)}`);
+  const idBase = useRef(`mmd-${Math.random().toString(36).slice(2)}`);
+  const seq = useRef(0);
 
   useEffect(() => {
+    const mySeq = ++seq.current;
+    const id = `${idBase.current}-${mySeq}`;
     let cancelled = false;
+    setSvg(null);
+    setError(null);
     import("mermaid")
       .then(async (mod) => {
         const mermaid = mod.default;
         mermaid.initialize({ startOnLoad: false, theme: "neutral" });
-        const { svg } = await mermaid.render(idRef.current, code);
-        if (!cancelled) setSvg(svg);
+        const { svg } = await mermaid.render(id, code);
+        if (!cancelled && mySeq === seq.current) setSvg(svg);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(String(e));
+        if (!cancelled && mySeq === seq.current) setError(String(e));
       });
     return () => {
       cancelled = true;
@@ -172,3 +179,19 @@ export function MarkdownPreview({ children }: { children: string }) {
     </Markdown>
   );
 }
+
+/**
+ * 编辑器（@uiw/react-md-editor）的 previewOptions。
+ * 它内部的 react-markdown-preview 会在我的插件之后**再追加一个裸的 remark-gfm**
+ * （singleTilde 默认开启，会把 ~x~ 下标吃成删除线），并自行添加 rehypeRaw。
+ * 用 pluginsFilter 把裸 gfm 函数剔除——我们自己的 gfm 以 [fn, {singleTilde:false}] 元组传入，不受影响。
+ */
+export const editorPreviewOptions = {
+  remarkPlugins: previewRemarkPlugins,
+  rehypePlugins: previewRehypePlugins,
+  components: previewComponents,
+  pluginsFilter: (type: "rehype" | "remark", plugins: PluggableList): PluggableList => {
+    if (type !== "remark") return plugins;
+    return plugins.filter((p) => p !== remarkGfm);
+  },
+};

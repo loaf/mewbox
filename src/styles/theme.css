@@ -27,11 +27,18 @@
   box-sizing: border-box;
 }
 
+/* 高度链：html → body → #root 必须逐级 100%，否则 AppShell 的 h-full
+   与 MDEditor 的 height=100% 全部塌陷（编辑器回落到默认矮高度） */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--ink);
-  height: 100vh;
   overflow: hidden;
 }
 

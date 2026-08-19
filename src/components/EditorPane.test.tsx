@@ -62,6 +62,14 @@ describe("EditorPane", () => {
     expect(document.querySelector(".wmde-markdown h1")).toBeTruthy();
   });
 
+  test("分栏模式下 ~下标~ 仍渲染为 <sub>（pluginsFilter 生效，@uiw 追加的裸 gfm 被剔除）", async () => {
+    await mount(post({ body: "H~2~O" }));
+    fireEvent.click(screen.getByTestId("mode-live"));
+    await waitFor(() => {
+      expect(document.querySelector(".wmde-markdown sub")?.textContent).toBe("2");
+    });
+  });
+
   test("自动保存：假时钟下连续输入 1s 只触发一次 savePost，内容=最新值", async () => {
     vi.useFakeTimers();
     await mount(post());

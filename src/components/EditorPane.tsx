@@ -3,7 +3,7 @@ import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { api } from "../lib/api";
 import { useApp, ViewMode } from "../stores/app";
-import { previewComponents, previewRehypePlugins, previewRemarkPlugins } from "../lib/markdown";
+import { editorPreviewOptions } from "../lib/markdown";
 
 const STATUS_OPTIONS = [
   ["draft", "草稿"],
@@ -204,11 +204,7 @@ export function EditorPane() {
               Parameters<typeof MDEditor>[0]["textareaProps"]
             >
           }
-          previewOptions={{
-            remarkPlugins: previewRemarkPlugins,
-            rehypePlugins: previewRehypePlugins,
-            components: previewComponents,
-          }}
+          previewOptions={editorPreviewOptions}
         />
       </div>
     </div>
