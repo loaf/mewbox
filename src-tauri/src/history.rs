@@ -144,9 +144,20 @@ pub fn maybe_snapshot(
     Ok(Some(write_snapshot(ws, idx, file_id, new_content)?))
 }
 
-/// 无条件写一份快照（恢复前抢救当前内容用）。
+/// 无条件写一份快照到指定目录（默认封装用于文稿/资料 `.history`，
+/// 发布版本复用 `_in` 版本指向 `{target}.history/`）。
 pub fn write_snapshot(
     ws: &crate::workspace::Workspace,
+    idx: &crate::index::Index,
+    file_id: &str,
+    content: &str,
+) -> Result<SnapshotEntry, HistoryError> {
+    write_snapshot_in(ws, &history_dir(ws, file_id), idx, file_id, content)
+}
+
+pub fn write_snapshot_in(
+    ws: &crate::workspace::Workspace,
+    dir: &Path,
     idx: &crate::index::Index,
     file_id: &str,
     content: &str,
@@ -154,14 +165,14 @@ pub fn write_snapshot(
     let now = chrono::Local::now();
     let h = hash8(content);
     let name = format!("{}-{}.md", now.format("%Y%m%d-%H%M%S"), h);
-    let dir = history_dir(ws, file_id);
-    std::fs::create_dir_all(&dir)?;
+    std::fs::create_dir_all(dir)?;
     let path = dir.join(&name);
     if !path.exists() {
         atomic_write(&path, content)?;
     }
     let ts = now.naive_local();
     idx.record_snapshot(file_id, &ts_key(&ts), &h)?;
+    let _ = ws;
     Ok(SnapshotEntry {
         file_name: name,
         ts,
@@ -177,9 +188,17 @@ pub fn list_snapshots(
     idx: &crate::index::Index,
     file_id: &str,
 ) -> Result<Vec<SnapshotEntry>, HistoryError> {
-    let dir = history_dir(ws, file_id);
+    list_snapshots_in(ws, &history_dir(ws, file_id), idx, file_id)
+}
+
+pub fn list_snapshots_in(
+    _ws: &crate::workspace::Workspace,
+    dir: &Path,
+    idx: &crate::index::Index,
+    file_id: &str,
+) -> Result<Vec<SnapshotEntry>, HistoryError> {
     let mut out = Vec::new();
-    let entries = match std::fs::read_dir(&dir) {
+    let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return Ok(out),
     };
@@ -221,24 +240,43 @@ pub fn list_snapshots(
     Ok(out)
 }
 
-/// 恢复快照：先把当前内容快照（永不破坏性覆盖），再覆盖主文件。
+/// 恢复快照：先把当前内容快照（永不破坏性覆盖），再覆盖主文件（索引定位路径版）。
 pub fn restore(
     ws: &crate::workspace::Workspace,
     idx: &crate::index::Index,
     file_id: &str,
     snapshot_file: &str,
 ) -> Result<(), HistoryError> {
-    let snap_content = std::fs::read_to_string(history_dir(ws, file_id).join(snapshot_file))?;
     let meta = idx
         .get_file(file_id)?
         .ok_or_else(|| HistoryError::Parse(format!("文件 {file_id} 不在索引中")))?;
     let main_path = ws.root.join(&meta.path);
-    if main_path.exists() {
-        if let Ok(current) = std::fs::read_to_string(&main_path) {
-            write_snapshot(ws, idx, file_id, &current)?;
+    restore_in(
+        ws,
+        idx,
+        file_id,
+        &history_dir(ws, file_id),
+        snapshot_file,
+        &main_path,
+    )
+}
+
+/// 目录版恢复：快照源目录与覆盖目标显式指定（发布版本复用）。
+pub fn restore_in(
+    ws: &crate::workspace::Workspace,
+    idx: &crate::index::Index,
+    file_id: &str,
+    dir: &Path,
+    snapshot_file: &str,
+    overwrite_path: &Path,
+) -> Result<(), HistoryError> {
+    let snap_content = std::fs::read_to_string(dir.join(snapshot_file))?;
+    if overwrite_path.exists() {
+        if let Ok(current) = std::fs::read_to_string(overwrite_path) {
+            write_snapshot_in(ws, dir, idx, file_id, &current)?;
         }
     }
-    atomic_write(&main_path, &snap_content)?;
+    atomic_write(overwrite_path, &snap_content)?;
     Ok(())
 }
 
@@ -248,7 +286,15 @@ pub fn read_snapshot_body(
     file_id: &str,
     snapshot_file: &str,
 ) -> std::io::Result<String> {
-    let content = std::fs::read_to_string(history_dir(ws, file_id).join(snapshot_file))?;
+    read_snapshot_body_in(ws, &history_dir(ws, file_id), snapshot_file)
+}
+
+pub fn read_snapshot_body_in(
+    _ws: &crate::workspace::Workspace,
+    dir: &Path,
+    snapshot_file: &str,
+) -> std::io::Result<String> {
+    let content = std::fs::read_to_string(dir.join(snapshot_file))?;
     Ok(crate::frontmatter::parse(&content)
         .map(|(_, body)| body)
         .unwrap_or(content))
@@ -262,7 +308,18 @@ pub fn set_milestone(
     snapshot_file: &str,
     name: &str,
 ) -> Result<(), HistoryError> {
-    let snaps = list_snapshots(ws, idx, file_id)?;
+    set_milestone_in(ws, idx, file_id, &history_dir(ws, file_id), snapshot_file, name)
+}
+
+pub fn set_milestone_in(
+    ws: &crate::workspace::Workspace,
+    idx: &crate::index::Index,
+    file_id: &str,
+    dir: &Path,
+    snapshot_file: &str,
+    name: &str,
+) -> Result<(), HistoryError> {
+    let snaps = list_snapshots_in(ws, dir, idx, file_id)?;
     let Some(s) = snaps.iter().find(|s| s.file_name == snapshot_file) else {
         return Err(HistoryError::Parse(format!("快照不存在: {snapshot_file}")));
     };
@@ -271,6 +328,7 @@ pub fn set_milestone(
 }
 
 /// 按保留策略清理所有文件的历史；返回清理数量。
+/// 同时覆盖发布版本历史 `publish/{target}.history/`（DESIGN §5.1「与文稿同一机制」）。
 pub fn cleanup(
     ws: &crate::workspace::Workspace,
     idx: &crate::index::Index,
@@ -284,22 +342,47 @@ pub fn cleanup(
         Err(_) => return Ok(0),
     };
     for entry in entries.flatten() {
-        let file_id = entry.file_name().to_string_lossy().into_owned();
-        let snaps = list_snapshots(ws, idx, &file_id)?;
-        let metas: Vec<SnapshotMeta> = snaps
-            .iter()
-            .map(|s| SnapshotMeta {
-                ts: s.ts_utc,
-                hash8: s.hash8.clone(),
-                milestone: s.milestone.clone(),
-            })
-            .collect();
-        let keep = plan_retention(&metas, now, cfg);
-        for s in &snaps {
-            if !keep.contains(&s.ts_utc) {
-                let _ = std::fs::remove_file(history_dir(ws, &file_id).join(&s.file_name));
-                let _ = idx.delete_snapshot(&file_id, &ts_key(&s.ts), &s.hash8);
-                removed += 1;
+        let base_id = entry.file_name().to_string_lossy().into_owned();
+        if !entry.path().is_dir() {
+            continue;
+        }
+        // 待清理的 (历史目录, 记录用 file_id)：文稿 .history + 各发布版本 {target}.history
+        let mut jobs: Vec<(PathBuf, String)> = vec![(history_dir(ws, &base_id), base_id.clone())];
+        let publish_dir = versions.join(&base_id).join("publish");
+        if let Ok(rd) = std::fs::read_dir(&publish_dir) {
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if !name.ends_with(".history") || !e.path().is_dir() {
+                    continue;
+                }
+                // 里程碑按 (file_id, ts, hash) 记录：file_id 必须用版本自身 UUID
+                // （从兄弟版本文件的 frontmatter 取；取不到时退回 base_id，里程碑查询将失配）
+                let sibling = publish_dir.join(name.trim_end_matches(".history").to_string() + ".md");
+                let version_id = std::fs::read_to_string(&sibling)
+                    .ok()
+                    .and_then(|c| crate::publish::parse(&c).ok())
+                    .map(|(fm, _)| fm.id.to_string())
+                    .unwrap_or_else(|| base_id.clone());
+                jobs.push((e.path(), version_id));
+            }
+        }
+        for (dir, file_id) in jobs {
+            let snaps = list_snapshots_in(ws, &dir, idx, &file_id)?;
+            let metas: Vec<SnapshotMeta> = snaps
+                .iter()
+                .map(|s| SnapshotMeta {
+                    ts: s.ts_utc,
+                    hash8: s.hash8.clone(),
+                    milestone: s.milestone.clone(),
+                })
+                .collect();
+            let keep = plan_retention(&metas, now, cfg);
+            for s in &snaps {
+                if !keep.contains(&s.ts_utc) {
+                    let _ = std::fs::remove_file(dir.join(&s.file_name));
+                    let _ = idx.delete_snapshot(&file_id, &ts_key(&s.ts), &s.hash8);
+                    removed += 1;
+                }
             }
         }
     }
@@ -539,5 +622,47 @@ mod tests {
         // index.db 丢失重建后，列表仍完整（磁盘为准）
         let fresh = crate::index::Index::open_in_memory().unwrap();
         assert_eq!(list_snapshots(&ws, &fresh, "id-1").unwrap().len(), before);
+    }
+
+    #[test]
+    fn snapshot_in_custom_dir() {
+        let (_dir, ws, idx) = setup();
+        let dir = ws.root.join(".versions").join("id-1").join("publish").join("wechat.history");
+        write_snapshot_in(&ws, &dir, &idx, "vid-1", "版本内容 v1").unwrap();
+        write_snapshot_in(&ws, &dir, &idx, "vid-1", "版本内容 v2").unwrap();
+        let snaps = list_snapshots_in(&ws, &dir, &idx, "vid-1").unwrap();
+        assert_eq!(snaps.len(), 2);
+        // 同秒快照不依赖排序：按正文内容断言
+        let bodies: Vec<String> = snaps
+            .iter()
+            .map(|s| read_snapshot_body_in(&ws, &dir, &s.file_name).unwrap())
+            .collect();
+        assert!(bodies.contains(&"版本内容 v1".to_string()));
+        assert!(bodies.contains(&"版本内容 v2".to_string()));
+    }
+
+    #[test]
+    fn cleanup_also_sweeps_publish_history() {
+        let (_dir, ws, idx) = setup();
+        indexed_post(&ws, &idx, "id-1", "posts/a.md", "x");
+        // 版本文件（frontmatter 提供版本 UUID，里程碑键用它）
+        let vfm = crate::publish::PublishFrontmatter::new("id-1", "wechat", "公众号版");
+        let publish_dir = ws.root.join(".versions").join("id-1").join("publish");
+        std::fs::create_dir_all(&publish_dir).unwrap();
+        std::fs::write(publish_dir.join("wechat.md"), vfm.to_content("正文")).unwrap();
+        let vdir = publish_dir.join("wechat.history");
+        std::fs::create_dir_all(&vdir).unwrap();
+        // 旧快照两份（同周：留最新）+ 一份里程碑
+        std::fs::write(vdir.join("20260610-080000-aaaa1111.md"), "old").unwrap();
+        std::fs::write(vdir.join("20260610-200000-bbbb2222.md"), "new").unwrap();
+        std::fs::write(vdir.join("20260501-080000-cccc3333.md"), "milestone").unwrap();
+        set_milestone_in(&ws, &idx, &vfm.id.to_string(), &vdir, "20260501-080000-cccc3333.md", "定稿").unwrap();
+
+        let now = Utc::now();
+        cleanup(&ws, &idx, &now, &RetentionConfig::default()).unwrap();
+        let left = list_snapshots_in(&ws, &vdir, &idx, &vfm.id.to_string()).unwrap();
+        assert!(!left.iter().any(|s| s.hash8 == "aaaa1111"), "同周旧份应被清理");
+        assert!(left.iter().any(|s| s.hash8 == "bbbb2222"));
+        assert!(left.iter().any(|s| s.milestone.as_deref() == Some("定稿")), "里程碑永留");
     }
 }

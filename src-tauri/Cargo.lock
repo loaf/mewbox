@@ -2260,6 +2260,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tempfile",
  "thiserror 2.0.20",
+ "toml 0.8.2",
  "uuid",
  "walkdir",
 ]

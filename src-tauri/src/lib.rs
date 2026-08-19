@@ -1,9 +1,11 @@
 mod commands;
 
 pub mod assets;
+pub mod config;
 pub mod frontmatter;
 pub mod history;
 pub mod index;
+pub mod publish;
 pub mod scan;
 pub mod state;
 pub mod vfolder;
@@ -127,7 +129,20 @@ pub fn run() {
             commands::save_pasted_image,
             commands::search_posts,
             commands::scan_refresh,
-            commands::import_external
+            commands::import_external,
+            commands::list_publish_versions,
+            commands::create_publish_version,
+            commands::read_publish_version,
+            commands::save_publish_version,
+            commands::sync_publish_from_post,
+            commands::set_publish_published,
+            commands::list_version_snapshots,
+            commands::read_version_snapshot,
+            commands::restore_version_snapshot,
+            commands::set_version_milestone,
+            commands::list_publish_targets,
+            commands::add_publish_target,
+            commands::save_pasted_image_at
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

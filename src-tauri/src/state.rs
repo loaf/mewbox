@@ -5,6 +5,7 @@ use crate::assets;
 use crate::frontmatter::{self, Frontmatter, PostStatus};
 use crate::history::{self, RetentionConfig};
 use crate::index::{FileMeta, Index, Scope, SearchHit};
+use crate::publish;
 use crate::scan;
 use crate::vfolder::{self, PostRef, TreeNode};
 use crate::workspace::Workspace;
@@ -19,6 +20,10 @@ pub enum AppError {
     History(#[from] history::HistoryError),
     #[error("frontmatter: {0}")]
     Frontmatter(#[from] serde_yaml::Error),
+    #[error("发布版本: {0}")]
+    Publish(#[from] crate::publish::PublishError),
+    #[error("配置: {0}")]
+    Config(#[from] crate::config::ConfigError),
     #[error("虚拟目录: {0}")]
     VFolder(#[from] vfolder::VFolderError),
     #[error("{0}")]
@@ -78,6 +83,19 @@ pub struct PostContent {
 pub struct SaveResult {
     pub updated_at: String,
     pub snapshotted: bool,
+}
+
+/// 发布版本内容（编辑器加载用，与 PostContent 对应）。
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionContent {
+    pub id: String,
+    pub base: String,
+    pub target: String,
+    pub title: String,
+    pub body: String,
+    pub published_url: Option<String>,
+    pub published_at: Option<String>,
 }
 
 /// 命令层核心：所有业务方法都在这（Tauri command 只做薄封装，可独立测试）。
@@ -431,6 +449,7 @@ impl AppState {
             scan::diff_with_index(&idx, &mut report)?;
             scan::apply_to_index(&idx, &report)?;
         }
+        report.orphan_versions = self.scan_publishes()?;
         Ok(report)
     }
 
@@ -462,6 +481,179 @@ impl AppState {
             history::purge_trash(&self.ws, idx, &now)?;
             Ok(())
         })
+    }
+
+    // ───── 发布版本（DESIGN §5） ─────
+
+    fn version_content(&self, base_id: &str, target: &str) -> AppResult<VersionContent> {
+        let (fm, body) = publish::read_version_body(&self.ws, base_id, target)?;
+        Ok(VersionContent {
+            id: fm.id.to_string(),
+            base: fm.base,
+            target: fm.target,
+            title: fm.title,
+            body,
+            published_url: fm.published_url,
+            published_at: fm.published_at,
+        })
+    }
+
+    pub fn list_publish_versions(&self, base_id: &str) -> AppResult<Vec<publish::VersionSummary>> {
+        Ok(publish::list_versions(&self.ws)
+            .into_iter()
+            .filter(|v| v.base == base_id)
+            .collect())
+    }
+
+    pub fn create_publish_version(
+        &self,
+        base_id: &str,
+        target: &str,
+        from_snapshot: Option<String>,
+    ) -> AppResult<VersionContent> {
+        let (meta, abs) = self.meta_path(base_id)?;
+        let (from_body, forked) = match &from_snapshot {
+            Some(f) => (history::read_snapshot_body(&self.ws, base_id, f)?, Some(f.clone())),
+            None => {
+                let content = std::fs::read_to_string(&abs)?;
+                let (_, body) = frontmatter::parse(&content)?;
+                (body, None)
+            }
+        };
+        let post_dir = std::path::Path::new(&meta.path)
+            .parent()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        let title = meta.title;
+        self.with_idx(|idx| {
+            Ok(publish::create_version(
+                &self.ws,
+                idx,
+                base_id,
+                &title,
+                target,
+                &from_body,
+                &post_dir,
+                forked,
+            )?)
+        })?;
+        Ok(self.version_content(base_id, target)?)
+    }
+
+    pub fn read_publish_version(&self, base_id: &str, target: &str) -> AppResult<VersionContent> {
+        Ok(self.version_content(base_id, target)?)
+    }
+
+    pub fn save_publish_version(
+        &self,
+        base_id: &str,
+        target: &str,
+        body: &str,
+    ) -> AppResult<SaveResult> {
+        let (fm, prev_body) = publish::read_version_body(&self.ws, base_id, target)?;
+        let snapshotted = history::is_material_change(&prev_body, body);
+        let s = self.with_idx(|idx| {
+            Ok(publish::save_version(&self.ws, idx, base_id, target, body)?)
+        })?;
+        Ok(SaveResult {
+            updated_at: s.updated_at,
+            snapshotted,
+        })
+    }
+
+    pub fn sync_publish_from_post(&self, base_id: &str, target: &str) -> AppResult<VersionContent> {
+        let (meta, abs) = self.meta_path(base_id)?;
+        let content = std::fs::read_to_string(&abs)?;
+        let (_, body) = frontmatter::parse(&content)?;
+        let post_dir = std::path::Path::new(&meta.path)
+            .parent()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        self.with_idx(|idx| {
+            Ok(publish::sync_from_post(&self.ws, idx, base_id, target, &body, &post_dir)?)
+        })?;
+        Ok(self.version_content(base_id, target)?)
+    }
+
+    pub fn set_publish_published(
+        &self,
+        base_id: &str,
+        target: &str,
+        url: Option<String>,
+        date: Option<String>,
+    ) -> AppResult<publish::VersionSummary> {
+        Ok(self.with_idx(|idx| {
+            Ok(publish::set_published(&self.ws, idx, base_id, target, url, date)?)
+        })?)
+    }
+
+    pub fn list_version_snapshots(
+        &self,
+        base_id: &str,
+        target: &str,
+    ) -> AppResult<Vec<history::SnapshotEntry>> {
+        Ok(self.with_idx(|idx| {
+            Ok(publish::list_version_snapshots(&self.ws, idx, base_id, target)?)
+        })?)
+    }
+
+    pub fn read_version_snapshot(&self, base_id: &str, target: &str, snapshot_file: &str) -> AppResult<String> {
+        Ok(publish::read_version_snapshot_body(&self.ws, base_id, target, snapshot_file)?)
+    }
+
+    pub fn restore_version_snapshot(&self, base_id: &str, target: &str, snapshot_file: &str) -> AppResult<VersionContent> {
+        self.with_idx(|idx| {
+            Ok(publish::restore_version_snapshot(&self.ws, idx, base_id, target, snapshot_file)?)
+        })?;
+        Ok(self.version_content(base_id, target)?)
+    }
+
+    pub fn set_version_milestone(&self, base_id: &str, target: &str, snapshot_file: &str, name: &str) -> AppResult<()> {
+        self.with_idx(|idx| {
+            Ok(publish::set_version_milestone(&self.ws, idx, base_id, target, snapshot_file, name)?)
+        })?;
+        Ok(())
+    }
+
+    pub fn list_publish_targets(&self) -> AppResult<Vec<crate::config::PublishTarget>> {
+        Ok(crate::config::list_targets(&self.ws)?)
+    }
+
+    pub fn add_publish_target(&self, id: &str, display: &str, note: &str) -> AppResult<()> {
+        Ok(crate::config::add_target(&self.ws, id, display, note)?)
+    }
+
+    /// 版本态贴图：按版本文件实际路径重算相对引用。
+    pub fn save_pasted_image_at(&self, file_rel_path: &str, bytes: &[u8], ext: &str) -> AppResult<String> {
+        let (_, filename) = assets::save_asset(&self.ws, bytes, ext)?;
+        Ok(assets::relative_asset_path(file_rel_path, &filename))
+    }
+
+    /// 发布版本索引维护：登记磁盘版本、清除消失行、报告无主版本（base 在回收站不算）。
+    fn scan_publishes(&self) -> AppResult<Vec<String>> {
+        let versions = publish::list_versions(&self.ws);
+        let mut orphans = Vec::new();
+        self.with_idx(|idx| {
+            let mut on_disk: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for v in &versions {
+                on_disk.insert(v.id.clone());
+                publish::reindex_version(&self.ws, idx, &v.base, &v.target)?;
+                let orphan = match idx.get_file(&v.base)? {
+                    None => true,
+                    Some(m) => m.missing && m.deleted_at.is_none(),
+                };
+                if orphan {
+                    orphans.push(format!("{}（base {}）", v.target, v.base));
+                }
+            }
+            for row in idx.list_by_kind("publish", true)? {
+                if !on_disk.contains(&row.id) {
+                    idx.purge_file(&row.id)?;
+                }
+            }
+            Ok(())
+        })?;
+        Ok(orphans)
     }
 }
 
@@ -573,5 +765,86 @@ mod tests {
         assert_eq!(find(&a.id).as_deref(), Some("后端/分布式"));
         assert_eq!(find(&b.id).as_deref(), Some("后端"));
         assert_eq!(find(&c.id).as_deref(), Some("技术前沿"));
+    }
+
+    // ───── 发布版本 ─────
+
+    #[test]
+    fn create_read_save_sync_roundtrip() {
+        let (_d, st) = state();
+        let p = st.create_post("深度工作", None).unwrap();
+        st.save_post(&p.id, "母版 v1\n\n![](../_assets/a.png)\n").unwrap();
+
+        let v = st.create_publish_version(&p.id, "wechat", None).unwrap();
+        assert_eq!(v.base, p.id);
+        assert_eq!(v.target, "wechat");
+        assert!(v.body.contains("../../../_assets/a.png"), "{}", v.body);
+
+        let saved = st.save_publish_version(&p.id, "wechat", "公众号适配版").unwrap();
+        assert!(saved.snapshotted);
+        let v2 = st.read_publish_version(&p.id, "wechat").unwrap();
+        assert_eq!(v2.body, "公众号适配版");
+        assert_eq!(v2.id, v.id, "版本 id 不变");
+
+        let synced = st.sync_publish_from_post(&p.id, "wechat").unwrap();
+        assert!(synced.body.contains("母版 v1"), "{}", synced.body);
+        assert!(synced.body.contains("../../../_assets/a.png"));
+        // 版本历史有内容（保存快照 + 同步前抢救；同秒同内容会去重，隔 1 秒成两份）
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let synced2 = st.sync_publish_from_post(&p.id, "wechat").unwrap();
+        let _ = synced2;
+        assert!(st.list_version_snapshots(&p.id, "wechat").unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn create_from_snapshot_records_forked_from() {
+        let (_d, st) = state();
+        let p = st.create_post("A", None).unwrap();
+        st.save_post(&p.id, "v1").unwrap();
+        st.save_post(&p.id, "v2").unwrap();
+        let snaps = st.list_snapshots(&p.id).unwrap();
+        // 快照指纹是完整文件内容的 hash；最旧那份即 v1（先保存）
+        let snap_file = snaps.last().unwrap().file_name.clone();
+        let v = st.create_publish_version(&p.id, "blog", Some(snap_file.clone())).unwrap();
+        // forked_from 已写入版本文件 frontmatter
+        let content = std::fs::read_to_string(
+            st.ws.root.join(format!(".versions/{}/publish/blog.md", p.id)),
+        )
+        .unwrap();
+        assert!(content.contains(&format!("forked_from: {snap_file}")), "{content}");
+        assert_eq!(v.base, p.id);
+    }
+
+    #[test]
+    fn orphan_version_reported_and_trashed_base_not_orphan() {
+        let (_d, st) = state();
+        let p = st.create_post("A", None).unwrap();
+        st.create_publish_version(&p.id, "wechat", None).unwrap();
+        // 正常状态：无孤儿
+        assert!(st.scan_refresh().unwrap().orphan_versions.is_empty());
+        // base 进回收站：不算孤儿（DESIGN-REVIEW 遗漏 4）
+        st.move_post_to_trash(&p.id).unwrap();
+        assert!(st.scan_refresh().unwrap().orphan_versions.is_empty());
+        // 索引里彻底没有 base（模拟母版被清除）：报告孤儿
+        {
+            let idx = st.idx.lock().unwrap();
+            idx.purge_file(&p.id).unwrap();
+        }
+        let report = st.scan_refresh().unwrap();
+        assert_eq!(report.orphan_versions.len(), 1);
+        assert!(report.orphan_versions[0].contains("wechat"));
+    }
+
+    #[test]
+    fn save_pasted_image_at_relative() {
+        let (_d, st) = state();
+        let p = st.create_post("A", None).unwrap();
+        st.create_publish_version(&p.id, "wechat", None).unwrap();
+        let version_rel = format!(".versions/{}/publish/wechat.md", p.id);
+        let rel = st
+            .save_pasted_image_at(&version_rel, b"img-bytes", "png")
+            .unwrap();
+        assert!(rel.starts_with("../../../_assets/"), "{rel}");
+        assert!(rel.ends_with(".png"), "{rel}");
     }
 }

@@ -18,6 +18,8 @@ pub struct ScanReport {
     pub slug_conflicts: Vec<String>,
     /// 索引里有、磁盘上没有的 id（missing 标记，记录不删）
     pub missing: Vec<String>,
+    /// 无主发布版本（base 文稿缺失；base 在回收站的不算，DESIGN-REVIEW 遗漏 4）
+    pub orphan_versions: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]

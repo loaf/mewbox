@@ -1,8 +1,11 @@
+use crate::config::PublishTarget;
 use crate::history::SnapshotEntry;
 use crate::index::SearchHit;
+use crate::publish::VersionSummary;
 use crate::scan::ScanReport;
 use crate::state::{
     AppError, AppResult, PostContent, PostSummary, PostsPayload, SaveResult, TrashItem,
+    VersionContent,
 };
 use crate::AppState;
 
@@ -153,6 +156,130 @@ pub fn import_external(
     path: String,
 ) -> AppResult<PostSummary> {
     state.import_external(&path)
+}
+
+// ───── 发布版本（DESIGN §5） ─────
+
+#[tauri::command]
+pub fn list_publish_versions(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+) -> AppResult<Vec<VersionSummary>> {
+    state.list_publish_versions(&base_id)
+}
+
+#[tauri::command]
+pub fn create_publish_version(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    from_snapshot: Option<String>,
+) -> AppResult<VersionContent> {
+    state.create_publish_version(&base_id, &target, from_snapshot)
+}
+
+#[tauri::command]
+pub fn read_publish_version(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+) -> AppResult<VersionContent> {
+    state.read_publish_version(&base_id, &target)
+}
+
+#[tauri::command]
+pub fn save_publish_version(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    content: String,
+) -> AppResult<SaveResult> {
+    state.save_publish_version(&base_id, &target, &content)
+}
+
+#[tauri::command]
+pub fn sync_publish_from_post(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+) -> AppResult<VersionContent> {
+    state.sync_publish_from_post(&base_id, &target)
+}
+
+#[tauri::command]
+pub fn set_publish_published(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    url: Option<String>,
+    date: Option<String>,
+) -> AppResult<VersionSummary> {
+    state.set_publish_published(&base_id, &target, url, date)
+}
+
+#[tauri::command]
+pub fn list_version_snapshots(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+) -> AppResult<Vec<SnapshotEntry>> {
+    state.list_version_snapshots(&base_id, &target)
+}
+
+#[tauri::command]
+pub fn read_version_snapshot(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    snapshot_file: String,
+) -> AppResult<String> {
+    state.read_version_snapshot(&base_id, &target, &snapshot_file)
+}
+
+#[tauri::command]
+pub fn restore_version_snapshot(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    snapshot_file: String,
+) -> AppResult<VersionContent> {
+    state.restore_version_snapshot(&base_id, &target, &snapshot_file)
+}
+
+#[tauri::command]
+pub fn set_version_milestone(
+    state: tauri::State<'_, AppState>,
+    base_id: String,
+    target: String,
+    snapshot_file: String,
+    name: String,
+) -> AppResult<()> {
+    state.set_version_milestone(&base_id, &target, &snapshot_file, &name)
+}
+
+#[tauri::command]
+pub fn list_publish_targets(state: tauri::State<'_, AppState>) -> AppResult<Vec<PublishTarget>> {
+    state.list_publish_targets()
+}
+
+#[tauri::command]
+pub fn add_publish_target(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    display: String,
+    note: String,
+) -> AppResult<()> {
+    state.add_publish_target(&id, &display, &note)
+}
+
+#[tauri::command]
+pub fn save_pasted_image_at(
+    state: tauri::State<'_, AppState>,
+    file_rel_path: String,
+    bytes: Vec<u8>,
+    ext: String,
+) -> AppResult<String> {
+    state.save_pasted_image_at(&file_rel_path, &bytes, &ext)
 }
 
 // AppError 已实现 Serialize（字符串形式），命令可直接返回 Result
