@@ -29,9 +29,16 @@
 ## 自动化结果（2026-08-18）
 
 - `cargo test`：**41 passed / 0 failed**
-- `vitest run`（本地镜像）：**36 passed / 0 failed**，`tsc --noEmit` 0 错误
+- `vitest run`（本地镜像）：**39 passed / 0 failed**（含 2026-08-19 三条回归），`tsc --noEmit` 0 错误
 - `pnpm tauri dev` 冒烟：窗口启动、dev-workspace 骨架完整、无报错日志
 - `pnpm tauri build`：产出 NSIS 安装包（见下）
+
+## 验收反馈修复（2026-08-19，a914381）
+
+用户安装实测反馈两处问题，已修复并重建安装包：
+
+1. **编辑器高度固定很矮**：`#root` 缺少高度定义，`html→body→#root` 高度链断裂，`h-full`/`height=100%` 全部失效。修复：theme.css 给 `html, body, #root` 各设 `height: 100%`。
+2. **分栏模式 mermaid 不渲染**：live 模式每次按键重渲染都以上一次的相同 id 调 `mermaid.render`，触发 id 冲突报错。修复：每次渲染生成唯一 id + 序号守卫。顺带修复：@uiw/react-markdown-preview 会在用户插件后追加**裸的 remark-gfm**（singleTilde 默认开，把 `~x~` 下标吃成删除线），用 `pluginsFilter` 剔除之。三条均有回归测试。
 
 ## 环境备注（网络盘开发工作流）
 
