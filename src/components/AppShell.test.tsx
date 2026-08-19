@@ -8,6 +8,9 @@ const listTrashMock = vi.fn();
 const readPostMock = vi.fn();
 const listAllVersionsMock = vi.fn();
 const workspaceRootMock = vi.fn();
+const listMaterialsMock = vi.fn();
+const listMaterialTrashMock = vi.fn();
+const assocTargetsMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   api: {
@@ -17,6 +20,9 @@ vi.mock("../lib/api", () => ({
     readPost: (...a: unknown[]) => readPostMock(...a),
     listAllVersions: (...a: unknown[]) => listAllVersionsMock(...a),
     workspaceRoot: (...a: unknown[]) => workspaceRootMock(...a),
+    listMaterials: (...a: unknown[]) => listMaterialsMock(...a),
+    listMaterialTrash: (...a: unknown[]) => listMaterialTrashMock(...a),
+    assocTargets: (...a: unknown[]) => assocTargetsMock(...a),
   },
 }));
 
@@ -31,25 +37,48 @@ describe("AppShell", () => {
     listTrashMock.mockResolvedValue([]);
     listAllVersionsMock.mockResolvedValue([]);
     workspaceRootMock.mockResolvedValue("X:/ws");
+    listMaterialsMock.mockResolvedValue([]);
+    listMaterialTrashMock.mockResolvedValue([]);
+    assocTargetsMock.mockResolvedValue([]);
     useApp.setState({
       loading: true,
       tree: [],
       posts: [],
       trash: [],
+      materials: [],
+      materialTrash: [],
+      material: null,
       selectedId: null,
       selected: null,
+      version: null,
       flushFn: null,
       saveState: "saved",
+      assocPicker: null,
+      trashOpen: false,
     });
   });
 
-  test("渲染左栏三区（文稿/知识库占位/搜索占位）与右栏页签（大纲/历史）", async () => {
+  test("渲染左栏三区（文稿/知识库/搜索）与右栏页签（大纲/反链/历史）", async () => {
     render(<AppShell />);
     expect(await screen.findByLabelText("文稿")).toBeInTheDocument();
     expect(screen.getByLabelText("知识库")).toBeInTheDocument();
     expect(screen.getByLabelText("全局搜索")).toBeInTheDocument();
     expect(await screen.findByTestId("tab-outline")).toBeInTheDocument();
+    expect(screen.getByTestId("tab-backlinks")).toBeInTheDocument();
     expect(screen.getByTestId("tab-history")).toBeInTheDocument();
+  });
+
+  test("知识库树渲染资料（load 拉取 materials）；资料回收站入口计数", async () => {
+    listMaterialsMock.mockResolvedValue([
+      { id: "m1", title: "设计笔记", path: "kb/Inbox/m1.md", folder: "Inbox", updatedAt: "t" },
+      { id: "m2", title: "论文", path: "kb/研究/m2.md", folder: "研究", updatedAt: "t" },
+    ]);
+    listMaterialTrashMock.mockResolvedValue([{ id: "m9", title: "旧资料", folder: null, deletedAt: "t", daysLeft: 5 }]);
+    render(<AppShell />);
+    expect(await screen.findByText("设计笔记")).toBeInTheDocument();
+    expect(screen.getByTestId("kb-folder-Inbox")).toBeInTheDocument();
+    expect(screen.getByTestId("kb-folder-研究")).toBeInTheDocument();
+    expect(screen.getByTestId("kb-trash-entry").textContent).toContain("1");
   });
 
   test("无选中时主区显示空状态，点新建→输入标题→创建并选中", async () => {
@@ -103,5 +132,26 @@ describe("AppShell", () => {
     expect(screen.getByTestId("version-banner")).toBeInTheDocument();
     expect(screen.getByTestId("version-title").textContent).toContain("公众号版");
     unmount();
+  });
+
+  test("资料模式下主区渲染资料编辑器（横幅 + 无空状态）", async () => {
+    listPostsMock.mockResolvedValue({ tree: [], posts: [] });
+    const { unmount } = render(<AppShell />);
+    await screen.findByTestId("empty-state");
+    useApp.setState({
+      view: { kind: "material", id: "m1" },
+      selectedId: null,
+      selected: null,
+      material: { id: "m1", title: "设计笔记", body: "资料内容", path: "kb/Inbox/m1.md", folder: "Inbox", assoc: null },
+    });
+    await waitFor(() => expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument());
+    expect(screen.getByTestId("material-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("editor-title")).toHaveValue("设计笔记");
+    unmount();
+  });
+
+  test("健康检查入口打开面板", async () => {
+    render(<AppShell />);
+    await screen.findByTestId("health-entry");
   });
 });

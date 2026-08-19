@@ -126,6 +126,15 @@ pub struct WikiResolve {
     pub candidates: Vec<WikiHit>,
 }
 
+/// 关联块条目（附目标 id 反查结果；发布版本区无文件 id → None）。
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssocTargetEntry {
+    pub title: String,
+    pub target: String,
+    pub id: Option<String>,
+}
+
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveResult {
@@ -1179,6 +1188,35 @@ impl AppState {
         })
     }
 
+    /// 关联块条目 → 目标 id 反查（前端跳转/解除关联用）。posts/materials 区按
+    /// 相对路径解析到索引 id；versions 区没有文件 id，恒为 None（前端按路径解析 base/target）。
+    pub fn assoc_targets(&self, id: &str) -> AppResult<Vec<AssocTargetEntry>> {
+        let meta = self.meta_by_id(id)?;
+        let (_, _, block) = self.read_any(&meta.path)?;
+        let by_path: std::collections::HashMap<String, String> =
+            self.live_files()?.into_iter().map(|m| (m.path, m.id)).collect();
+        let mut out = Vec::new();
+        if let Some(b) = block {
+            for e in b.posts.iter().chain(&b.materials) {
+                let target_id = links::resolve_dest(&meta.path, &e.target)
+                    .and_then(|p| by_path.get(&p).cloned());
+                out.push(AssocTargetEntry {
+                    title: e.title.clone(),
+                    target: e.target.clone(),
+                    id: target_id,
+                });
+            }
+            for e in &b.versions {
+                out.push(AssocTargetEntry {
+                    title: e.title.clone(),
+                    target: e.target.clone(),
+                    id: None,
+                });
+            }
+        }
+        Ok(out)
+    }
+
     // ───── 资料库操作（§6） ─────
 
     pub fn list_materials(&self) -> AppResult<Vec<MaterialSummary>> {
@@ -1592,6 +1630,42 @@ mod tests {
         let pc3 = st.read_post(&p.id).unwrap();
         assert!(pc3.assoc.is_none());
         assert!(st.read_material(&m.id).unwrap().assoc.is_none());
+    }
+
+    #[test]
+    fn assoc_targets_resolves_ids_and_versions_none() {
+        let (_d, st) = state();
+        let p = st.create_post("深度工作", None).unwrap();
+        st.save_post(&p.id, "正文").unwrap();
+        let other = st.create_post("另一篇", None).unwrap();
+        let m = st.create_material("笔记", "研究").unwrap();
+        st.update_assoc(&p.id, &other.id, true).unwrap();
+        st.update_assoc(&p.id, &m.id, true).unwrap();
+        st.create_publish_version(&p.id, "wechat", None, Some("正文".into()))
+            .unwrap();
+
+        let targets = st.assoc_targets(&p.id).unwrap();
+        // posts + materials 各一条解析到 id；versions 区恒 None
+        assert_eq!(targets.len(), 3);
+        assert!(targets.iter().any(|t| t.id.as_deref() == Some(other.id.as_str())));
+        assert!(targets.iter().any(|t| t.id.as_deref() == Some(m.id.as_str())));
+        let ver = targets.iter().find(|t| t.target.contains("/publish/")).unwrap();
+        assert!(ver.id.is_none());
+        assert!(ver.target.contains("wechat"));
+
+        // 资料侧反查：指向文稿的条目解析出文稿 id
+        let m_targets = st.assoc_targets(&m.id).unwrap();
+        assert_eq!(m_targets.len(), 1);
+        assert_eq!(m_targets[0].id.as_deref(), Some(p.id.as_str()));
+
+        // 目标进了回收站 → 解析不到 id（不指向已删文件）
+        st.move_material_to_trash(&m.id).unwrap();
+        let targets2 = st.assoc_targets(&p.id).unwrap();
+        let m_entry = targets2
+            .iter()
+            .find(|t| t.target.contains(".trash"))
+            .unwrap();
+        assert!(m_entry.id.is_none());
     }
 
     #[test]

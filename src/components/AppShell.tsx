@@ -5,13 +5,17 @@ import { NewPostDialog } from "./NewPostDialog";
 import { EditorPane } from "./EditorPane";
 import { OutlinePanel } from "./OutlinePanel";
 import { HistoryPanel } from "./HistoryPanel";
+import { BacklinksPanel } from "./BacklinksPanel";
 import { TrashPanel } from "./TrashPanel";
+import { KbTree } from "./KbTree";
+import { HealthPanel } from "./HealthPanel";
 
-/** 左栏：文稿区（虚拟目录树）/ 回收站入口 / 占位区（知识库、全局搜索随 M3/M5） */
+/** 左栏：文稿区 / 知识库区（M3）/ 搜索占位 / 回收站与健康检查入口 */
 function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const posts = useApp((s) => s.posts);
   const setTrashOpen = useApp((s) => s.setTrashOpen);
   const trashCount = useApp((s) => s.trash.length);
+  const [healthOpen, setHealthOpen] = useState(false);
 
   return (
     <aside className="flex w-[236px] flex-none flex-col overflow-auto border-r border-[var(--line)] bg-[var(--card)]">
@@ -23,21 +27,31 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
 
       <PostTree onNewPost={onCreate} />
 
-      <section className="border-t border-[var(--line)] px-2 py-3 opacity-50" aria-label="知识库">
-        <span className="px-1 text-xs font-bold tracking-wide text-[var(--muted)]">📚 知识库（M3）</span>
-      </section>
+      <KbTree />
+
       <section className="border-t border-[var(--line)] px-2 py-3 opacity-50" aria-label="全局搜索">
         <span className="px-1 text-xs font-bold tracking-wide text-[var(--muted)]">🔍 全局搜索（M5）</span>
       </section>
 
-      <button
-        onClick={() => setTrashOpen(true)}
-        className="mt-auto border-t border-dashed border-[var(--line)] px-4 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"
-        data-testid="trash-entry"
-      >
-        🗑 回收站{trashCount > 0 ? `（${trashCount}）` : ""}
-      </button>
+      <div className="mt-auto border-t border-dashed border-[var(--line)]">
+        <button
+          onClick={() => setHealthOpen(true)}
+          className="w-full px-4 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"
+          data-testid="health-entry"
+        >
+          🩺 健康检查
+        </button>
+        <button
+          onClick={() => setTrashOpen(true)}
+          className="w-full border-t border-dashed border-[var(--line)] px-4 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"
+          data-testid="trash-entry"
+        >
+          🗑 回收站{trashCount > 0 ? `（${trashCount}）` : ""}
+        </button>
+      </div>
       <div className="hidden">{posts.length}</div>
+
+      <HealthPanel open={healthOpen} onClose={() => setHealthOpen(false)} />
     </aside>
   );
 }
@@ -63,6 +77,12 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
+const RIGHT_TABS = [
+  ["outline", "大纲"],
+  ["backlinks", "反链"],
+  ["history", "历史"],
+] as const;
+
 export function AppShell() {
   const loading = useApp((s) => s.loading);
   const load = useApp((s) => s.load);
@@ -70,6 +90,7 @@ export function AppShell() {
   const selected = useApp((s) => s.selected);
   const view = useApp((s) => s.view);
   const version = useApp((s) => s.version);
+  const material = useApp((s) => s.material);
   const rightTab = useApp((s) => s.rightTab);
   const setRightTab = useApp((s) => s.setRightTab);
 
@@ -94,20 +115,21 @@ export function AppShell() {
     return <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">正在打开工作区…</div>;
   }
 
+  const hasEditorTarget =
+    selected !== null ||
+    (view.kind === "version" && version !== null) ||
+    (view.kind === "material" && material !== null);
+
   return (
     <div className="flex h-full">
       <LeftColumn onCreate={onCreate} />
       <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
-        {/* 版本模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
-        {selected || (view.kind === "version" && version) ? (
-          <EditorPane />
-        ) : (
-          <EmptyState onCreate={onCreate} />
-        )}
+        {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
+        {hasEditorTarget ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
       </main>
       <aside className="flex w-[288px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
         <div className="flex gap-1 border-b border-[var(--line)] p-2">
-          {(["outline", "history"] as const).map((tab) => (
+          {RIGHT_TABS.map(([tab, label]) => (
             <button
               key={tab}
               onClick={() => setRightTab(tab)}
@@ -116,12 +138,12 @@ export function AppShell() {
               }`}
               data-testid={`tab-${tab}`}
             >
-              {tab === "outline" ? "大纲" : "历史"}
+              {label}
             </button>
           ))}
         </div>
         <div className="flex min-h-0 flex-1 flex-col" data-testid={`panel-${rightTab}`}>
-          {rightTab === "outline" ? <OutlinePanel /> : <HistoryPanel />}
+          {rightTab === "outline" ? <OutlinePanel /> : rightTab === "backlinks" ? <BacklinksPanel /> : <HistoryPanel />}
         </div>
       </aside>
 

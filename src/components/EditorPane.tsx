@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
-import { api } from "../lib/api";
+import { api, WikiHit } from "../lib/api";
 import { useApp, ViewMode } from "../stores/app";
-import { assetContext, editorPreviewOptions } from "../lib/markdown";
+import {
+  assetContext,
+  editorPreviewOptions,
+  MarkdownPreview,
+  withWikiLinks,
+  wikiTitleFromHref,
+} from "../lib/markdown";
 import { PublishDialog, PublishRecordDialog } from "./PublishDialog";
 import { SyncVersionDialog } from "./SyncVersionDialog";
+import { AssocPanel } from "./AssocPanel";
+import { CandidatesDialog } from "./CandidatesDialog";
 
 const STATUS_OPTIONS = [
   ["draft", "草稿"],
@@ -28,6 +36,7 @@ export function EditorPane() {
   const selected = useApp((s) => s.selected);
   const selectedId = useApp((s) => s.selectedId);
   const version = useApp((s) => s.version);
+  const material = useApp((s) => s.material);
   const posts = useApp((s) => s.posts);
   const viewMode = useApp((s) => s.viewMode);
   const setViewMode = useApp((s) => s.setViewMode);
@@ -35,40 +44,47 @@ export function EditorPane() {
   const savedAt = useApp((s) => s.savedAt);
   const load = useApp((s) => s.load);
   const reloadPost = useApp((s) => s.reloadPost);
+  const reloadMaterial = useApp((s) => s.reloadMaterial);
   const backToPost = useApp((s) => s.backToPost);
+  const select = useApp((s) => s.select);
+  const selectMaterial = useApp((s) => s.selectMaterial);
+  const openAssocPicker = useApp((s) => s.openAssocPicker);
 
   const isVersion = view.kind === "version";
-  const active = isVersion ? version : selected;
-  const activeId = isVersion ? (version?.id ?? null) : (selected?.id ?? null);
+  const isMaterial = view.kind === "material";
+  const active = isVersion ? version : isMaterial ? material : selected;
+  const activeId = isVersion ? (version?.id ?? null) : isMaterial ? (material?.id ?? null) : (selected?.id ?? null);
   const activeBody = active?.body ?? "";
+  const activeTitle = active?.title ?? "";
 
   const [body, setBody] = useState(activeBody);
-  const [titleDraft, setTitleDraft] = useState(selected?.title ?? "");
+  const [titleDraft, setTitleDraft] = useState(activeTitle);
   const latestBody = useRef(body);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
+  const [wikiCandidates, setWikiCandidates] = useState<WikiHit[]>([]);
 
   latestBody.current = body;
 
-  // 贴图/相对资源的解析基准：当前预览文件所在目录（文稿 or 版本）
+  // 贴图/相对资源的解析基准：当前预览文件所在目录（文稿 / 版本 / 资料）
   useEffect(() => {
     if (view.kind === "version") {
       assetContext.baseDir = `.versions/${view.baseId}/publish`;
+    } else if (view.kind === "material" && material?.path) {
+      assetContext.baseDir = material.path.split("/").slice(0, -1).join("/");
     } else {
-      assetContext.baseDir = selected?.path
-        ? selected.path.split("/").slice(0, -1).join("/")
-        : "posts";
+      assetContext.baseDir = selected?.path ? selected.path.split("/").slice(0, -1).join("/") : "posts";
     }
-  }, [view, selected?.path]);
+  }, [view, selected?.path, material?.path]);
 
-  // 切换目标（文稿/版本）时重置本地态
+  // 切换目标（文稿/版本/资料）时重置本地态
   useEffect(() => {
     setBody(activeBody);
-    setTitleDraft(selected?.title ?? "");
-  }, [activeId, activeBody, selected?.title]);
+    setTitleDraft(activeTitle);
+  }, [activeId, activeBody, activeTitle]);
 
   const doSave = useCallback(async () => {
     const st = useApp.getState();
@@ -87,6 +103,24 @@ export function EditorPane() {
         }
       } catch (e) {
         console.error("版本保存失败", e);
+        st.setDirty();
+      }
+      return;
+    }
+    if (st.view.kind === "material") {
+      const id = st.view.id;
+      if (!st.material || content === st.material.body) return;
+      st.setSaving();
+      try {
+        const r = await api.saveMaterial(id, content);
+        if (latestBody.current === content) {
+          useApp.setState((s) => ({
+            material: s.material ? { ...s.material, body: content } : null,
+          }));
+          st.setSaved(r.updatedAt);
+        }
+      } catch (e) {
+        console.error("资料保存失败", e);
         st.setDirty();
       }
       return;
@@ -110,7 +144,7 @@ export function EditorPane() {
     }
   }, []);
 
-  // 注册 flush：切换文稿/版本前强制落盘
+  // 注册 flush：切换文稿/版本/资料前强制落盘
   useEffect(() => {
     const flush = async () => {
       if (timer.current) clearTimeout(timer.current);
@@ -136,12 +170,18 @@ export function EditorPane() {
   }, [body, active, activeBody, doSave]);
 
   const onTitleCommit = async () => {
-    if (!selected) return;
     const title = titleDraft.trim();
-    if (!title || title === selected.title) {
-      setTitleDraft(selected.title);
+    if (!title || title === activeTitle) {
+      setTitleDraft(activeTitle);
       return;
     }
+    if (isMaterial && view.kind === "material") {
+      await api.setMaterialTitle(view.id, title);
+      await load();
+      await reloadMaterial();
+      return;
+    }
+    if (!selected) return;
     await api.setPostTitle(selected.id, title);
     await load();
     await reloadPost();
@@ -152,6 +192,14 @@ export function EditorPane() {
     await api.setPostStatus(selected.id, status);
     await load();
     await reloadPost();
+  };
+
+  // 资料横幅：升格为文稿 / 关联到文稿
+  const onConvertToPost = async () => {
+    if (view.kind !== "material" || !material) return;
+    const p = await api.convertMaterialToPost(material.id);
+    await load();
+    await select(p.id);
   };
 
   const onPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -167,13 +215,43 @@ export function EditorPane() {
         const ext = (item.type.split("/")[1] || "png").replace("jpeg", "jpg");
         const rel = isVersion && view.kind === "version"
           ? await api.savePastedImageAt(`.versions/${view.baseId}/publish/${view.target}.md`, buf, ext)
-          : await api.savePastedImage((active as { id: string }).id, buf, ext);
+          : isMaterial && view.kind === "material" && material
+            ? await api.savePastedImageAt(material.path, buf, ext)
+            : await api.savePastedImage((active as { id: string }).id, buf, ext);
         const next = insertAtCursor(ta, `![](${rel})`);
         setBody(next);
         return;
       }
     }
   };
+
+  // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选（§7.2）
+  const onPreviewClick = async (e: React.MouseEvent) => {
+    const anchor = (e.target as HTMLElement).closest?.('a[href^="#wiki:"]');
+    if (!anchor) return;
+    e.preventDefault();
+    const title = wikiTitleFromHref(anchor.getAttribute("href") ?? "");
+    if (!title) return;
+    const r = await api.resolveWiki(title).catch(() => null);
+    if (!r) return;
+    const jump = (h: WikiHit) => (h.kind === "post" ? void select(h.id) : void selectMaterial(h.id));
+    if (r.matched) jump(r.matched);
+    else if (r.candidates.length > 0) setWikiCandidates(r.candidates);
+  };
+
+  // 自定义预览：预处理 wiki 链接后走共享渲染管线（textarea 保持原文）
+  const renderPreview = useCallback(
+    (md: string) => (
+      <div className="wmde-markdown wmde-markdown-color">
+        <MarkdownPreview>{isVersion ? md : withWikiLinks(md)}</MarkdownPreview>
+      </div>
+    ),
+    [isVersion],
+  );
+  const mdComponents = useMemo(
+    () => ({ preview: renderPreview }) as unknown as NonNullable<Parameters<typeof MDEditor>[0]["components"]>,
+    [renderPreview],
+  );
 
   if (!active) return null;
 
@@ -207,7 +285,30 @@ export function EditorPane() {
         </div>
       )}
 
-      {/* 顶部：标题 + 状态 + 模式 + 保存指示 */}
+      {isMaterial && view.kind === "material" && (
+        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-1.5 text-xs" data-testid="material-banner">
+          <span className="font-semibold">📚 资料 · {material?.folder ?? "Inbox"}</span>
+          <span className="text-[var(--muted)]">资料服务写作——升格后进入文稿区</span>
+          <div className="ml-auto flex gap-1">
+            <button
+              className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+              onClick={() => void onConvertToPost()}
+              data-testid="convert-to-post"
+            >
+              升格为文稿
+            </button>
+            <button
+              className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+              onClick={() => openAssocPicker("posts")}
+              data-testid="link-to-posts"
+            >
+              关联到文稿…
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 顶部：标题 + 状态 + 模式 + 保存指示（资料无状态/发布） */}
       <div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--card)] px-5 py-2">
         {isVersion ? (
           <span className="min-w-0 flex-1 truncate text-lg font-bold" data-testid="version-title">
@@ -217,13 +318,13 @@ export function EditorPane() {
           <input
             value={titleDraft}
             onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={onTitleCommit}
+            onBlur={() => void onTitleCommit()}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             className="min-w-0 flex-1 bg-transparent text-lg font-bold outline-none"
             data-testid="editor-title"
           />
         )}
-        {isVersion ? (
+        {isVersion && (
           <button
             onClick={() => setPublishOpen(true)}
             className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
@@ -231,7 +332,8 @@ export function EditorPane() {
           >
             发布版本…
           </button>
-        ) : (
+        )}
+        {!isVersion && !isMaterial && (
           <select
             value={selected?.status ?? "draft"}
             onChange={(e) => void onStatusChange(e.target.value)}
@@ -270,7 +372,7 @@ export function EditorPane() {
             </button>
           ))}
         </div>
-        {!isVersion && selected && (
+        {view.kind === "post" && selectedId && (
           <button
             onClick={() => setPublishOpen(true)}
             className="ml-auto rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
@@ -281,8 +383,8 @@ export function EditorPane() {
         )}
       </div>
 
-      {/* 编辑器 */}
-      <div className="min-h-0 flex-1" data-color-mode="light">
+      {/* 编辑器（预览管线预处理 wiki 链接；textarea 保持原文） */}
+      <div className="min-h-0 flex-1" data-color-mode="light" onClick={(e) => void onPreviewClick(e)}>
         <MDEditor
           value={body}
           onChange={(v) => setBody(v ?? "")}
@@ -298,8 +400,12 @@ export function EditorPane() {
             >
           }
           previewOptions={editorPreviewOptions}
+          components={mdComponents}
         />
       </div>
+
+      {/* 关联块（文稿/资料侧；版本无块） */}
+      <AssocPanel />
 
       {view.kind === "post" && selectedId && (
         <PublishDialog open={publishOpen} baseId={selectedId} onClose={() => setPublishOpen(false)} />
@@ -317,6 +423,16 @@ export function EditorPane() {
           />
         </>
       )}
+
+      <CandidatesDialog
+        candidates={wikiCandidates}
+        onPick={(h) => {
+          setWikiCandidates([]);
+          if (h.kind === "post") void select(h.id);
+          else void selectMaterial(h.id);
+        }}
+        onClose={() => setWikiCandidates([])}
+      />
     </div>
   );
 }

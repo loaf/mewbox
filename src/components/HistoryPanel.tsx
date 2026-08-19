@@ -13,6 +13,7 @@ export function HistoryPanel() {
   const selectedId = useApp((s) => s.selectedId);
   const reloadPost = useApp((s) => s.reloadPost);
   const reloadVersion = useApp((s) => s.reloadVersion);
+  const reloadMaterial = useApp((s) => s.reloadMaterial);
   const [snapshots, setSnapshots] = useState<SnapshotEntry[]>([]);
   const [openSnap, setOpenSnap] = useState<string | null>(null);
   const [snapBody, setSnapBody] = useState("");
@@ -20,7 +21,8 @@ export function HistoryPanel() {
   const [milestoneFor, setMilestoneFor] = useState<string | null>(null);
 
   const isVersion = view.kind === "version";
-  const baseId = isVersion ? view.baseId : selectedId;
+  const isMaterial = view.kind === "material";
+  const baseId = isVersion ? view.baseId : isMaterial ? view.id : selectedId;
   const target = isVersion ? view.target : null;
 
   const refresh = useCallback(async () => {
@@ -32,12 +34,16 @@ export function HistoryPanel() {
       ]);
       setSnapshots(snaps);
       setCurrentBody(v.body);
+    } else if (isMaterial) {
+      const [snaps, m] = await Promise.all([api.listSnapshots(baseId!), api.readMaterial(baseId!)]);
+      setSnapshots(snaps);
+      setCurrentBody(m.body);
     } else {
       const [snaps, post] = await Promise.all([api.listSnapshots(baseId!), api.readPost(baseId!)]);
       setSnapshots(snaps);
       setCurrentBody(post.body);
     }
-  }, [baseId, target, isVersion]);
+  }, [baseId, target, isVersion, isMaterial]);
 
   useEffect(() => {
     setOpenSnap(null);
@@ -64,6 +70,9 @@ export function HistoryPanel() {
     if (isVersion && target) {
       await api.restoreVersionSnapshot(baseId, target, fileName);
       await reloadVersion();
+    } else if (isMaterial) {
+      await api.restoreSnapshot(baseId!, fileName);
+      await reloadMaterial();
     } else {
       await api.restoreSnapshot(baseId!, fileName);
       await reloadPost();

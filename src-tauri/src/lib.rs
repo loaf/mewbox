@@ -166,6 +166,7 @@ pub fn run() {
             commands::move_material,
             commands::rename_kb_dir,
             commands::update_assoc,
+            commands::assoc_targets,
             commands::backlinks,
             commands::resolve_wiki,
             commands::health_check,

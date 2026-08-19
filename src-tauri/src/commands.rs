@@ -428,6 +428,14 @@ pub fn update_assoc(
 }
 
 #[tauri::command]
+pub fn assoc_targets(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> AppResult<Vec<crate::state::AssocTargetEntry>> {
+    state.assoc_targets(&id)
+}
+
+#[tauri::command]
 pub fn backlinks(state: tauri::State<'_, AppState>, id: String) -> AppResult<Vec<Backlink>> {
     state.backlinks(&id)
 }

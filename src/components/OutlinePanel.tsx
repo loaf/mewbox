@@ -5,8 +5,11 @@ import { extractHeadings } from "../lib/outline";
 /** 右栏大纲：标题层级列表；点击跳转（预览模式按锚点滚动，源码模式提示切换） */
 export function OutlinePanel() {
   const selected = useApp((s) => s.selected);
+  const view = useApp((s) => s.view);
+  const material = useApp((s) => s.material);
   const viewMode = useApp((s) => s.viewMode);
-  const headings = useMemo(() => extractHeadings(selected?.body ?? ""), [selected?.body]);
+  const body = view.kind === "material" ? (material?.body ?? "") : (selected?.body ?? "");
+  const headings = useMemo(() => extractHeadings(body), [body]);
 
   if (headings.length === 0) {
     return <div className="p-3 text-xs text-[var(--muted)]">暂无标题结构（用 # 开始一级标题）</div>;

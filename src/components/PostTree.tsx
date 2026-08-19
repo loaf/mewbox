@@ -74,6 +74,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number; kind: "post" | "folder"; target: PostSummary | string } | null>(null);
   const [renameFolder, setRenameFolder] = useState<{ from: string } | null>(null);
   const [renameTitle, setRenameTitle] = useState<{ post: PostSummary } | null>(null);
+  const [renameSlug, setRenameSlug] = useState<{ post: PostSummary } | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   const visible = useMemo(() => filterAndSort(posts, statusFilter, sortKey), [posts, statusFilter, sortKey]);
@@ -262,6 +263,29 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                 >
                   改标题
                 </button>
+                <button
+                  className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
+                  onClick={() => {
+                    setRenameSlug({ post: menu.target as PostSummary });
+                    setMenu(null);
+                  }}
+                  data-testid="menu-rename-slug"
+                >
+                  重命名文件…
+                </button>
+                <button
+                  className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
+                  onClick={async () => {
+                    const post = menu.target as PostSummary;
+                    setMenu(null);
+                    await api.convertPostToMaterial(post.id);
+                    await load();
+                    if (useApp.getState().selectedId === post.id) await useApp.getState().select(null);
+                  }}
+                  data-testid="menu-convert-material"
+                >
+                  转为资料
+                </button>
                 {(["draft", "writing", "done", "archived"] as const).map((s) => (
                   <button
                     key={s}
@@ -349,6 +373,38 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
             />
             <div className="flex justify-end gap-2">
               <button onClick={() => setRenameTitle(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renameSlug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="rename-slug-dialog">
+            <h3 className="mb-3 text-sm font-bold">重命名文件（slug）</h3>
+            <p className="mb-2 text-xs text-[var(--muted)]">
+              正文与关联块里的引用会自动同步到新路径
+            </p>
+            <input
+              autoFocus
+              defaultValue={renameSlug.post.path.split("/").pop()?.replace(/\.md$/, "") ?? ""}
+              data-testid="rename-slug-input"
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") {
+                  const slug = (e.target as HTMLInputElement).value.trim();
+                  if (slug) {
+                    await api.renamePostSlug(renameSlug.post.id, slug);
+                    await load();
+                  }
+                  setRenameSlug(null);
+                }
+              }}
+              className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRenameSlug(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
                 取消
               </button>
             </div>

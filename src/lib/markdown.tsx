@@ -46,6 +46,48 @@ export function resolveAssetSrc(src: string): string {
   }
 }
 
+// ═══════ wiki 链接预处理（M3，DESIGN §7.2） ═══════
+
+/**
+ * `[[标题]]` → `[标题](#wiki:标题)`：预览管线吃不了裸 wiki 语法，
+ * 预处理成锚点链接后由 EditorPane 拦截点击走 resolve_wiki 跳转。
+ * 跳过代码围栏（与 outline.extractHeadings 同款围栏状态机）。
+ */
+export function withWikiLinks(md: string): string {
+  let inFence = false;
+  let fenceMark = "";
+  const out: string[] = [];
+  for (const line of md.split("\n")) {
+    const fence = line.trimStart().match(/^(`{3,}|~{3,})/);
+    if (fence) {
+      if (!inFence) {
+        inFence = true;
+        fenceMark = fence[1][0];
+      } else if (fence[1][0] === fenceMark) {
+        inFence = false;
+      }
+      out.push(line);
+      continue;
+    }
+    out.push(
+      inFence
+        ? line
+        : line.replace(/\[\[([^\]]+)\]\]/g, (_m, t: string) => `[${t}](#wiki:${encodeURIComponent(t)})`),
+    );
+  }
+  return out.join("\n");
+}
+
+/** 预览点击拦截用：从 `#wiki:标题` 锚点还原标题 */
+export function wikiTitleFromHref(href: string): string | null {
+  if (!href.startsWith("#wiki:")) return null;
+  try {
+    return decodeURIComponent(href.slice("#wiki:".length));
+  } catch {
+    return href.slice("#wiki:".length);
+  }
+}
+
 // ═══════ 自写 remark 插件：==高亮== / ~下标~ / ^上标^（事实标准扩展语法） ═══════
 
 function escapeHtml(s: string): string {

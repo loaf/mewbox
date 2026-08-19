@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { render, screen, waitFor } from "@testing-library/react";
 import remarkGfm from "remark-gfm";
-import { MarkdownPreview, editorPreviewOptions, remarkSubSuper, resolveAssetSrc, assetContext } from "./markdown";
+import { MarkdownPreview, editorPreviewOptions, remarkSubSuper, resolveAssetSrc, assetContext, withWikiLinks, wikiTitleFromHref } from "./markdown";
 
 vi.mock("mermaid", () => ({
   default: {
@@ -91,5 +91,35 @@ describe("markdown 渲染扩展", () => {
     // rehype 插件不动
     const rehype = [1, 2] as never[];
     expect(editorPreviewOptions.pluginsFilter("rehype", rehype)).toBe(rehype);
+  });
+
+  // ───── wiki 链接预处理（M3） ─────
+
+  test("withWikiLinks：[[标题]] → #wiki: 锚点链接；一行多个全替换", () => {
+    expect(withWikiLinks("参考 [[深度工作]] 一书")).toBe(
+      "参考 [深度工作](#wiki:%E6%B7%B1%E5%BA%A6%E5%B7%A5%E4%BD%9C) 一书",
+    );
+    const multi = withWikiLinks("[[甲]] 和 [[乙]]");
+    expect(multi).toContain("#wiki:%E7%94%B2");
+    expect(multi).toContain("#wiki:%E4%B9%99");
+    // wikiTitleFromHref 还原标题
+    const href = multi.match(/#wiki:[^)]+/)![0];
+    expect(wikiTitleFromHref(href)).toBe("甲");
+  });
+
+  test("withWikiLinks：代码围栏内不替换（``` 与 ~~~ 均跳过）", () => {
+    const md = "正文 [[外]]\n```ts\nconst x = \"[[内]]\";\n```\n后续 [[外2]]\n~~~\n[[内2]]\n~~~";
+    const out = withWikiLinks(md);
+    expect(out).toContain("[外](#wiki:");
+    expect(out).toContain("[外2](#wiki:");
+    expect(out).not.toContain("[内](#wiki:");
+    expect(out).not.toContain("[内2](#wiki:");
+    expect(out).toContain('const x = "[[内]]";');
+  });
+
+  test("withWikiLinks：非 wiki 文本原样；wikiTitleFromHref 只认 #wiki: 前缀", () => {
+    expect(withWikiLinks("[普通链接](a.md) 和 [x](#anchor)")).toBe("[普通链接](a.md) 和 [x](#anchor)");
+    expect(wikiTitleFromHref("#anchor")).toBeNull();
+    expect(wikiTitleFromHref("https://x.com")).toBeNull();
   });
 });

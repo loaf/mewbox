@@ -12,6 +12,13 @@ const apiMocks = vi.hoisted(() => ({
   setPostTitle: vi.fn().mockResolvedValue({}),
   movePostToTrash: vi.fn().mockResolvedValue(undefined),
   readPost: vi.fn(),
+  // M3
+  convertPostToMaterial: vi.fn(),
+  renamePostSlug: vi.fn().mockResolvedValue({}),
+  listMaterials: vi.fn().mockResolvedValue([]),
+  listMaterialTrash: vi.fn().mockResolvedValue([]),
+  listAllVersions: vi.fn().mockResolvedValue([]),
+  workspaceRoot: vi.fn().mockResolvedValue(""),
 }));
 
 vi.mock("../lib/api", () => ({ api: apiMocks }));
@@ -128,5 +135,26 @@ describe("PostTree", () => {
       const item = screen.getByText("随想").closest('[data-testid="post-item"]')!;
       expect(item.className).toContain("bg-[var(--cat-bg)]");
     });
+  });
+
+  // ───── M3：转为资料 / 重命名文件 ─────
+
+  test("右键「转为资料」→ convertPostToMaterial → load", async () => {
+    apiMocks.convertPostToMaterial.mockResolvedValue({ id: "m9", title: "随想", path: "kb/Inbox/x.md", folder: "Inbox", updatedAt: "t" });
+    await mount([P3]);
+    fireEvent.contextMenu(screen.getByText("随想").closest('[data-testid="post-item"]')!);
+    fireEvent.click(screen.getByTestId("menu-convert-material"));
+    await waitFor(() => expect(apiMocks.convertPostToMaterial).toHaveBeenCalledWith("p3"));
+    await waitFor(() => expect(apiMocks.listPosts).toHaveBeenCalled());
+  });
+
+  test("右键「重命名文件…」→ renamePostSlug", async () => {
+    await mount([P3]);
+    fireEvent.contextMenu(screen.getByText("随想").closest('[data-testid="post-item"]')!);
+    fireEvent.click(screen.getByTestId("menu-rename-slug"));
+    const input = screen.getByTestId("rename-slug-input");
+    await userEvent.clear(input);
+    await userEvent.type(input, "new-slug{Enter}");
+    await waitFor(() => expect(apiMocks.renamePostSlug).toHaveBeenCalledWith("p3", "new-slug"));
   });
 });
