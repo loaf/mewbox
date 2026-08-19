@@ -72,19 +72,25 @@ export function withWikiLinks(md: string): string {
     out.push(
       inFence
         ? line
-        : line.replace(/\[\[([^\]]+)\]\]/g, (_m, t: string) => `[${t}](#wiki:${encodeURIComponent(t)})`),
+        : line.replace(
+            /\[\[([^\]]+)\]\]/g,
+            // 用 data-wiki 属性的裸 <a>（走 rehypeRaw）：href 方案会被 react-markdown
+            // 的 urlTransform 清洗（#wiki: 非安全协议 → href 清空，点击失灵）
+            (_m, t: string) => `<a data-wiki="${encodeURIComponent(t)}">${t}</a>`,
+          ),
     );
   }
   return out.join("\n");
 }
 
-/** 预览点击拦截用：从 `#wiki:标题` 锚点还原标题 */
-export function wikiTitleFromHref(href: string): string | null {
-  if (!href.startsWith("#wiki:")) return null;
+/** 预览点击拦截用：从 data-wiki 锚点还原标题 */
+export function wikiTitleFromAnchor(el: Element): string | null {
+  const raw = el.getAttribute("data-wiki");
+  if (!raw) return null;
   try {
-    return decodeURIComponent(href.slice("#wiki:".length));
+    return decodeURIComponent(raw);
   } catch {
-    return href.slice("#wiki:".length);
+    return raw;
   }
 }
 

@@ -1466,6 +1466,45 @@ impl AppState {
         Ok(crate::health::check(&self.ws, self)?)
     }
 
+    /// kb 物理目录清单（含空目录；排除 .trash）——树与移动/新建对话框用。
+    pub fn list_kb_dirs(&self) -> AppResult<Vec<String>> {
+        let mut dirs = Vec::new();
+        let kb = self.ws.root.join("kb");
+        for entry in walkdir::WalkDir::new(&kb).min_depth(1).into_iter().flatten() {
+            if !entry.file_type().is_dir() {
+                continue;
+            }
+            if entry.file_name().to_string_lossy() == ".trash" {
+                continue;
+            }
+            let rel = entry
+                .path()
+                .strip_prefix(&self.ws.root)
+                .unwrap_or(entry.path())
+                .to_string_lossy()
+                .replace('\\', "/");
+            dirs.push(rel);
+        }
+        dirs.sort();
+        Ok(dirs)
+    }
+
+    /// 新建 kb 物理目录（验收反馈：原 UI 只能新建资料，无法建目录）。
+    pub fn create_kb_dir(&self, parent: &str, name: &str) -> AppResult<String> {
+        let name = name.trim().trim_matches('/');
+        if name.is_empty() || name.contains("..") {
+            return Err(AppError::NotFound("目录名不合法".into()));
+        }
+        let base = if parent.trim().is_empty() {
+            "kb".to_string()
+        } else {
+            format!("kb/{}", parent.trim().trim_matches('/'))
+        };
+        let dir = format!("{base}/{name}");
+        std::fs::create_dir_all(self.ws.root.join(&dir))?;
+        Ok(dir)
+    }
+
     pub fn clean_orphan_assets(&self, fingerprints: &[String]) -> AppResult<usize> {
         Ok(crate::health::clean_orphan_assets(&self.ws, fingerprints)?)
     }
@@ -1706,6 +1745,19 @@ mod tests {
         assert!(back.path.starts_with("posts/"), "{}", back.path);
         let mc2 = st.read_material(&m.id).unwrap();
         assert!(mc2.assoc.as_ref().unwrap().posts[0].target.starts_with("../../posts/"), "{:?}", mc2.assoc);
+    }
+
+    #[test]
+    fn rename_post_slug_moves_and_updates_index() {
+        let (_d, st) = state();
+        let p = st.create_post("深度工作", None).unwrap();
+        let old = p.path.clone();
+        st.rename_post_slug(&p.id, "new-slug").unwrap();
+        let meta = st.meta_by_id(&p.id).unwrap();
+        assert_eq!(meta.path, "posts/new-slug.md");
+        assert!(!st.ws.root.join(&old).exists());
+        assert!(st.ws.root.join("posts/new-slug.md").exists());
+        assert_eq!(meta.title, "深度工作", "标题不受影响");
     }
 
     #[test]

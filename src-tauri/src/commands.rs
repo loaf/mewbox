@@ -451,6 +451,20 @@ pub fn health_check(state: tauri::State<'_, AppState>) -> AppResult<crate::healt
 }
 
 #[tauri::command]
+pub fn list_kb_dirs(state: tauri::State<'_, AppState>) -> AppResult<Vec<String>> {
+    state.list_kb_dirs()
+}
+
+#[tauri::command]
+pub fn create_kb_dir(
+    state: tauri::State<'_, AppState>,
+    parent: String,
+    name: String,
+) -> AppResult<String> {
+    state.create_kb_dir(&parent, &name)
+}
+
+#[tauri::command]
 pub fn clean_orphan_assets(
     state: tauri::State<'_, AppState>,
     fingerprints: Vec<String>,

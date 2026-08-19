@@ -179,7 +179,7 @@ describe("EditorPane", () => {
 
   // ───── wiki 链接（M3，§7.2） ─────
 
-  test("预览 [[wiki]] 渲染为 #wiki: 锚点；唯一命中点击跳转文稿", async () => {
+  test("预览 [[wiki]] 渲染为 data-wiki 锚点；唯一命中点击跳转文稿", async () => {
     apiMocks.resolveWiki.mockResolvedValue({
       matched: { id: "p2", kind: "post", title: "深度工作", path: "posts/p2.md" },
       candidates: [],
@@ -188,7 +188,7 @@ describe("EditorPane", () => {
     await mount(post({ body: "看 [[深度工作]] 一书" }));
     fireEvent.click(screen.getByTestId("mode-preview"));
     const anchor = await waitFor(() => {
-      const a = document.querySelector('a[href^="#wiki:"]');
+      const a = document.querySelector("a[data-wiki]");
       expect(a).toBeTruthy();
       return a as HTMLAnchorElement;
     });
@@ -212,7 +212,7 @@ describe("EditorPane", () => {
     await mount(post({ body: "[[深度工作]]" }));
     fireEvent.click(screen.getByTestId("mode-preview"));
     const anchor = await waitFor(() => {
-      const a = document.querySelector('a[href^="#wiki:"]');
+      const a = document.querySelector("a[data-wiki]");
       expect(a).toBeTruthy();
       return a as HTMLAnchorElement;
     });
@@ -222,6 +222,19 @@ describe("EditorPane", () => {
     expect(candidates).toHaveLength(2);
     fireEvent.click(candidates[0]);
     await waitFor(() => expect(useApp.getState().view).toEqual({ kind: "material", id: "m1" }));
+  });
+
+  test("wiki 悬空（无匹配无候选）→ 悬空提示弹窗", async () => {
+    apiMocks.resolveWiki.mockResolvedValue({ matched: null, candidates: [] });
+    await mount(post({ body: "[[不存在的标题]]" }));
+    fireEvent.click(screen.getByTestId("mode-preview"));
+    const anchor = await waitFor(() => {
+      const a = document.querySelector("a[data-wiki]");
+      expect(a).toBeTruthy();
+      return a as HTMLAnchorElement;
+    });
+    fireEvent.click(anchor);
+    await waitFor(() => expect(screen.getByTestId("wiki-dangling")).toBeInTheDocument());
   });
 
   // ───── 发布版本模式（M2） ─────

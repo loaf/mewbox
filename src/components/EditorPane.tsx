@@ -8,7 +8,7 @@ import {
   editorPreviewOptions,
   MarkdownPreview,
   withWikiLinks,
-  wikiTitleFromHref,
+  wikiTitleFromAnchor,
 } from "../lib/markdown";
 import { PublishDialog, PublishRecordDialog } from "./PublishDialog";
 import { SyncVersionDialog } from "./SyncVersionDialog";
@@ -66,6 +66,7 @@ export function EditorPane() {
   const [syncOpen, setSyncOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
   const [wikiCandidates, setWikiCandidates] = useState<WikiHit[]>([]);
+  const [wikiDangling, setWikiDangling] = useState<string | null>(null);
 
   latestBody.current = body;
 
@@ -225,18 +226,19 @@ export function EditorPane() {
     }
   };
 
-  // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选（§7.2）
+  // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选，悬空给提示（§7.2）
   const onPreviewClick = async (e: React.MouseEvent) => {
-    const anchor = (e.target as HTMLElement).closest?.('a[href^="#wiki:"]');
+    const anchor = (e.target as HTMLElement).closest?.("a[data-wiki]");
     if (!anchor) return;
     e.preventDefault();
-    const title = wikiTitleFromHref(anchor.getAttribute("href") ?? "");
+    const title = wikiTitleFromAnchor(anchor);
     if (!title) return;
     const r = await api.resolveWiki(title).catch(() => null);
     if (!r) return;
     const jump = (h: WikiHit) => (h.kind === "post" ? void select(h.id) : void selectMaterial(h.id));
     if (r.matched) jump(r.matched);
     else if (r.candidates.length > 0) setWikiCandidates(r.candidates);
+    else setWikiDangling(title);
   };
 
   // 自定义预览：预处理 wiki 链接后走共享渲染管线（textarea 保持原文）
@@ -426,12 +428,16 @@ export function EditorPane() {
 
       <CandidatesDialog
         candidates={wikiCandidates}
+        dangling={wikiDangling}
         onPick={(h) => {
           setWikiCandidates([]);
           if (h.kind === "post") void select(h.id);
           else void selectMaterial(h.id);
         }}
-        onClose={() => setWikiCandidates([])}
+        onClose={() => {
+          setWikiCandidates([]);
+          setWikiDangling(null);
+        }}
       />
     </div>
   );

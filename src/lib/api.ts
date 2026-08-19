@@ -289,4 +289,7 @@ export const api = {
   healthCheck: (): Promise<HealthReport> => invoke("health_check"),
   cleanOrphanAssets: (fingerprints: string[]): Promise<number> =>
     invoke("clean_orphan_assets", { fingerprints }),
+  listKbDirs: (): Promise<string[]> => invoke("list_kb_dirs"),
+  createKbDir: (parent: string, name: string): Promise<string> =>
+    invoke("create_kb_dir", { parent, name }),
 };

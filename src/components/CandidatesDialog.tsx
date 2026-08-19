@@ -1,16 +1,19 @@
 import { WikiHit } from "../lib/api";
 
-/** `[[标题]]` 重名候选弹窗（§7.2：重名保持悬空并给候选） */
+/** `[[标题]]` 重名候选弹窗（§7.2：重名保持悬空并给候选）；无匹配时给悬空提示 */
 export function CandidatesDialog({
   candidates,
+  dangling,
   onPick,
   onClose,
 }: {
   candidates: WikiHit[];
+  dangling?: string | null;
   onPick: (hit: WikiHit) => void;
   onClose: () => void;
 }) {
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0 && !dangling) return null;
+  const isDangling = candidates.length === 0 && !!dangling;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div
@@ -18,8 +21,19 @@ export function CandidatesDialog({
         onClick={(e) => e.stopPropagation()}
         data-testid="wiki-candidates-dialog"
       >
-        <h3 className="mb-1 text-sm font-bold">同名条目，请选择</h3>
-        <p className="mb-3 text-xs text-[var(--muted)]">wiki 链接的标题对应多个文件</p>
+        {isDangling ? (
+          <>
+            <h3 className="mb-1 text-sm font-bold">悬空链接</h3>
+            <p className="mb-3 text-xs text-[var(--muted)]" data-testid="wiki-dangling">
+              没有找到标题为「{dangling}」的文稿或资料——链接保持悬空（§7.2），建目标后即可跳转。
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 className="mb-1 text-sm font-bold">同名条目，请选择</h3>
+            <p className="mb-3 text-xs text-[var(--muted)]">wiki 链接的标题对应多个文件</p>
+          </>
+        )}
         <div className="max-h-[280px] overflow-auto">
           {candidates.map((c) => (
             <button

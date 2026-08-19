@@ -114,26 +114,27 @@ pub fn check(ws: &Workspace, state: &AppState) -> crate::state::AppResult<Health
     let trash_paths: std::collections::HashSet<&str> =
         trashed.iter().map(|(_, p)| p.as_str()).collect();
 
-    // 断链 / 回收站目标
+    // 断链 / 回收站目标：先按索引归类回收站目标（提示），再以磁盘存在性为准——
+    // 索引路径可能滞后于外部移动（Explorer 搬目录），不能当存在性判据（验收反馈修复）
     for m in &live {
         let Ok(text) = std::fs::read_to_string(ws.root.join(&m.path)) else { continue };
         for dest in all_dests(&text) {
             let resolved = crate::links::resolve_dest(&m.path, &dest);
             let Some(target) = resolved else { continue };
-            if live_paths.contains(&target) {
-                continue;
-            }
             if trash_paths.contains(target.as_str()) {
                 report.trash_targets.push(BrokenLink {
                     from: m.path.clone(),
                     dest: target,
                 });
-            } else {
-                report.broken_links.push(BrokenLink {
-                    from: m.path.clone(),
-                    dest: target,
-                });
+                continue;
             }
+            if live_paths.contains(&target) || ws.root.join(&target).exists() {
+                continue;
+            }
+            report.broken_links.push(BrokenLink {
+                from: m.path.clone(),
+                dest: target,
+            });
         }
     }
 

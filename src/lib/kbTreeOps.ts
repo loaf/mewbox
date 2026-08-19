@@ -35,7 +35,7 @@ function sortMaterials(list: MaterialSummary[]): MaterialSummary[] {
  * 由资料列表构建 kb 物理目录树（与 treeOps.buildTree 对文稿的角色对应）：
  * Inbox 固定第一，其余目录按名称排序；散在 kb 根的资料挂在 KB_ROOT 节点（最后）。
  */
-export function buildKbTree(materials: MaterialSummary[]): KbTreeNode[] {
+export function buildKbTree(materials: MaterialSummary[], physicalDirs: string[] = []): KbTreeNode[] {
   const root: TreeLevel = {};
   const kbRootFiles: MaterialSummary[] = [];
 
@@ -46,6 +46,11 @@ export function buildKbTree(materials: MaterialSummary[]): KbTreeNode[] {
     } else {
       ensurePath(root, folder).materials.push(m);
     }
+  }
+  // 物理目录（含空目录）并入树：strip 掉 kb/ 前缀
+  for (const d of physicalDirs) {
+    const rel = d.replace(/^kb\/?/, "").replace(/\/+$/, "");
+    if (rel) ensurePath(root, rel);
   }
 
   const sortLevelObj = (level: TreeLevel): TreeLevel => {
@@ -72,13 +77,20 @@ export function buildKbTree(materials: MaterialSummary[]): KbTreeNode[] {
   return result;
 }
 
-/** 目录树里出现过的全部目录路径（移动资料对话框的建议目录用；Inbox 在前） */
-export function kbDirPaths(materials: MaterialSummary[]): string[] {
+/** 目录树里出现过的全部目录路径（移动资料对话框的建议目录用；Inbox 在前）。
+ *  physicalDirs 为磁盘上的物理目录（含空目录），一并纳入建议。 */
+export function kbDirPaths(materials: MaterialSummary[], physicalDirs: string[] = []): string[] {
   const dirs = new Set<string>();
   for (const m of materials) {
     const folder = m.folder && m.folder.trim() ? m.folder.trim() : null;
     if (!folder) continue;
     const segs = folder.split("/");
+    for (let i = 1; i <= segs.length; i++) dirs.add(segs.slice(0, i).join("/"));
+  }
+  for (const d of physicalDirs) {
+    const rel = d.replace(/^kb\/?/, "").replace(/\/+$/, "");
+    if (!rel || rel === ".trash") continue;
+    const segs = rel.split("/");
     for (let i = 1; i <= segs.length; i++) dirs.add(segs.slice(0, i).join("/"));
   }
   const list = [...dirs].sort((a, b) => a.localeCompare(b, "zh"));

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { api, MaterialSummary } from "../lib/api";
 import { useApp } from "../stores/app";
@@ -14,8 +14,28 @@ export function KbTree() {
   const setTrashOpen = useApp((s) => s.setTrashOpen);
   const load = useApp((s) => s.load);
 
-  const tree = useMemo(() => buildKbTree(materials), [materials]);
-  const dirPaths = useMemo(() => kbDirPaths(materials), [materials]);
+  const [kbDirs, setKbDirs] = useState<string[]>([]);
+  const refreshDirs = useCallback(async () => {
+    setKbDirs(await api.listKbDirs().catch(() => []));
+  }, []);
+  useEffect(() => {
+    void refreshDirs();
+  }, [refreshDirs, materials.length]);
+
+  const tree = useMemo(() => buildKbTree(materials, kbDirs), [materials, kbDirs]);
+  const dirPaths = useMemo(() => kbDirPaths(materials, kbDirs), [materials, kbDirs]);
+
+  /** 新建目录（验收反馈：此前只能新建资料） */
+  const onCreateDir = async (parent: string) => {
+    const name = window.prompt(parent ? `在「${parent}」下新建目录，目录名：` : "新建目录（kb 根下），目录名：");
+    if (!name?.trim()) return;
+    try {
+      await api.createKbDir(parent, name.trim());
+      await refreshDirs();
+    } catch (e) {
+      window.alert(String(e));
+    }
+  };
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<
@@ -119,6 +139,14 @@ export function KbTree() {
             data-testid="kb-new-material"
           >
             + 新建
+          </button>
+          <button
+            onClick={() => void onCreateDir("")}
+            className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px]"
+            data-testid="kb-new-dir-btn"
+            title="新建目录（kb 根下）"
+          >
+            📁+
           </button>
           <button
             onClick={() => void onImport()}
@@ -235,6 +263,17 @@ export function KbTree() {
                   }}
                 >
                   新建资料
+                </button>
+                <button
+                  className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
+                  data-testid="kb-menu-new-subdir"
+                  onClick={() => {
+                    const parent = (menu.target as string).replace(/^kb\/?/, "");
+                    setMenu(null);
+                    void onCreateDir(parent);
+                  }}
+                >
+                  新建子目录
                 </button>
               </>
             )}

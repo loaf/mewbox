@@ -385,7 +385,11 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
           <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="rename-slug-dialog">
             <h3 className="mb-3 text-sm font-bold">重命名文件（slug）</h3>
             <p className="mb-2 text-xs text-[var(--muted)]">
-              正文与关联块里的引用会自动同步到新路径
+              改的是<strong>物理文件名</strong>（磁盘上的 posts/xxx.md），<strong>列表显示的标题不变</strong>
+              ——改标题请用「改标题」。正文与关联块里的引用会自动同步到新路径。
+            </p>
+            <p className="mb-2 text-[10px] text-[var(--muted)]">
+              当前：posts/{renameSlug.post.path.split("/").pop()}
             </p>
             <input
               autoFocus

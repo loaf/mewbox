@@ -170,7 +170,9 @@ pub fn run() {
             commands::backlinks,
             commands::resolve_wiki,
             commands::health_check,
-            commands::clean_orphan_assets
+            commands::clean_orphan_assets,
+            commands::list_kb_dirs,
+            commands::create_kb_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
