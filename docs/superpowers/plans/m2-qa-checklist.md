@@ -26,6 +26,16 @@
 - 链接重写做了词法归一化（折叠 `.`/`..`）；`<img src>` 与根相对 `/x` 路径不处理（M2 已知限制）。
 - `pnpm tauri build` 产物见下节。
 
+## 验收反馈修复（2026-08-19，40c2c05）
+
+用户实测反馈三处问题，已修复并重建安装包：
+
+1. **贴图预览失败**：预览里 `../_assets/…` 相对的是 webview 页面 origin 而非工作区磁盘。修复：开启 Tauri asset 协议（`protocol-asset` feature + `assetProtocol.scope`），预览的 `<img>` 经 `convertFileSrc(工作区根 + 词法归一化的相对路径)` 映射为本地文件 URL；后端新增 `workspace_root` 命令、PostContent/VersionContent 带 `path`，前端按当前文件目录解析（文稿在 `posts/…`、版本在 `.versions/{id}/publish`）。外链/锚点/data 原样，非 Tauri 环境回退。
+2. **创建版本内容空白**：创建时先读文件、后 flush，防抖中未落盘的最新编辑没进版本。修复：创建前先强制保存母版（flush 先于 createPublishVersion，有调用顺序测试）。
+3. **母版与版本缺少层次**：按设计决策 8 版本不进侧栏，改为打开版本时左栏**高亮母版文稿**（含 📣 圆点标识）+ 文稿条目显示 **📣 版本数徽标**（新增 `list_all_versions` 命令与 store 计数）；横幅继续标注归属。
+
+自动化更新：cargo **68/68**、vitest **51/51**（新增资源解析、flush 顺序、徽标/高亮测试）。
+
 ## 构建产物（2026-08-19）
 
 - NSIS：`C:\Users\lijun\.mewbox-cargo-target\release\bundle\nsis\MewBox_0.1.0_x64-setup.exe`
