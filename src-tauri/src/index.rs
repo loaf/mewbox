@@ -396,6 +396,26 @@ impl Index {
         Ok(())
     }
 
+    /// 单条留痕查询（结果去向断言/前端详情用）：(outcome, tokens_in, tokens_out)。
+    pub fn ai_call_outcome(&self, id: &str) -> Result<Option<(String, u64, u64)>, Error> {
+        let res = self.conn.query_row(
+            "SELECT outcome, tokens_in, tokens_out FROM ai_calls WHERE id=?1",
+            [id],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, i64>(1)?.max(0) as u64,
+                    r.get::<_, i64>(2)?.max(0) as u64,
+                ))
+            },
+        );
+        match res {
+            Ok(v) => Ok(Some(v)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// 某日前缀（"2026-08-19"）内的已花费美分（按 provider 单价，Ollama 恒 0）。
     pub fn ai_cents_since(
         &self,

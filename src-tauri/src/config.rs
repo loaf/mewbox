@@ -135,7 +135,8 @@ impl Default for AiBudget {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AiConfig {
     pub providers: Vec<AiProvider>,
     /// op → "provider:model"（model 省略则用 provider 默认）

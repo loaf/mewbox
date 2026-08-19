@@ -477,3 +477,164 @@ pub fn clean_orphan_assets(
 fn _assert_error_serializable(e: AppError) -> String {
     serde_json::to_string(&e).unwrap()
 }
+
+// ───── AI（DESIGN §8，M4 T8；流事件 ai-stream:{call_id}）─────
+
+#[tauri::command]
+pub fn ai_run_op(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    call_id: String,
+    op: String,
+    contexts: Vec<crate::ai::ContextEntry>,
+    custom: Option<String>,
+    question: Option<String>,
+    history: Option<Vec<(String, String)>>,
+    target_lang: Option<String>,
+    tone: Option<String>,
+    selection: Option<String>,
+    include_attachment_text: Option<bool>,
+) -> AppResult<()> {
+    state.ai_run_op(
+        std::sync::Arc::new(app),
+        &call_id,
+        &op,
+        &contexts,
+        crate::ai::RunParams {
+            custom,
+            question,
+            history: history.unwrap_or_default(),
+            target_lang,
+            tone,
+            selection,
+            include_attachment_text: include_attachment_text.unwrap_or(false),
+        },
+    )
+}
+
+#[tauri::command]
+pub fn ai_cancel(state: tauri::State<'_, AppState>, app: tauri::AppHandle, call_id: String) -> AppResult<()> {
+    state.ai_cancel(&app, &call_id)
+}
+
+#[tauri::command]
+pub fn ai_adopt_result(
+    state: tauri::State<'_, AppState>,
+    call_id: String,
+    note: Option<String>,
+) -> AppResult<()> {
+    state.ai_adopt_result(&call_id, note.as_deref())
+}
+
+#[tauri::command]
+pub fn ai_discard_result(state: tauri::State<'_, AppState>, call_id: String) -> AppResult<()> {
+    state.ai_discard_result(&call_id)
+}
+
+#[tauri::command]
+pub fn ai_save_as_material(
+    state: tauri::State<'_, AppState>,
+    call_id: String,
+    title: String,
+    body: String,
+    source_ids: Vec<String>,
+    assoc_ids: Vec<String>,
+) -> AppResult<MaterialSummary> {
+    state.ai_save_as_material(&call_id, &title, &body, &source_ids, &assoc_ids)
+}
+
+#[tauri::command]
+pub fn ai_describe_attachment(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    call_id: String,
+    material_id: String,
+    attachment: String,
+) -> AppResult<()> {
+    state.ai_describe_attachment(std::sync::Arc::new(app), &call_id, &material_id, &attachment)
+}
+
+#[tauri::command]
+pub fn ai_apply_suggestions(
+    state: tauri::State<'_, AppState>,
+    body: String,
+    items: Vec<crate::prompts::Suggestion>,
+) -> AppResult<crate::ai::ApplyOutcome> {
+    state.ai_apply_suggestions(&body, &items)
+}
+
+#[tauri::command]
+pub async fn ai_test_connection(
+    state: tauri::State<'_, AppState>,
+    provider_id: String,
+) -> AppResult<crate::ai::ConnectionTest> {
+    state.ai_test_connection(&provider_id).await
+}
+
+#[tauri::command]
+pub fn ai_list_providers(state: tauri::State<'_, AppState>) -> AppResult<crate::config::AiConfig> {
+    state.ai_list_providers()
+}
+
+#[tauri::command]
+pub fn ai_save_provider(
+    state: tauri::State<'_, AppState>,
+    provider: crate::config::AiProvider,
+) -> AppResult<()> {
+    state.ai_save_provider(&provider)
+}
+
+#[tauri::command]
+pub fn ai_delete_provider(state: tauri::State<'_, AppState>, id: String) -> AppResult<()> {
+    state.ai_delete_provider(&id)
+}
+
+#[tauri::command]
+pub fn ai_save_ai_config(
+    state: tauri::State<'_, AppState>,
+    routes: std::collections::BTreeMap<String, String>,
+    fallbacks: std::collections::BTreeMap<String, String>,
+    budget: crate::config::AiBudget,
+) -> AppResult<()> {
+    state.ai_save_ai_config(&routes, &fallbacks, budget)
+}
+
+#[tauri::command]
+pub fn ai_set_key(
+    state: tauri::State<'_, AppState>,
+    provider_id: String,
+    key: String,
+) -> AppResult<()> {
+    state.ai_set_key(&provider_id, &key)
+}
+
+#[tauri::command]
+pub fn ai_has_key(state: tauri::State<'_, AppState>, provider_id: String) -> AppResult<bool> {
+    state.ai_has_key(&provider_id)
+}
+
+#[tauri::command]
+pub fn ai_delete_key(state: tauri::State<'_, AppState>, provider_id: String) -> AppResult<()> {
+    state.ai_delete_key(&provider_id)
+}
+
+#[tauri::command]
+pub fn ai_usage(
+    state: tauri::State<'_, AppState>,
+    month_scope: Option<bool>,
+) -> AppResult<Vec<crate::index::UsageRow>> {
+    state.ai_usage(month_scope.unwrap_or(false))
+}
+
+#[tauri::command]
+pub fn ai_clear_calls(state: tauri::State<'_, AppState>) -> AppResult<()> {
+    state.ai_clear_calls()
+}
+
+#[tauri::command]
+pub fn ai_search_materials(
+    state: tauri::State<'_, AppState>,
+    query: String,
+) -> AppResult<Vec<SearchHit>> {
+    state.ai_search_materials(&query)
+}

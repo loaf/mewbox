@@ -80,6 +80,13 @@ impl Workspace {
     }
 }
 
+/// 共享句柄克隆：排他锁仍由原始实例持有（M4：AI 异步任务需要 'static 工作区访问）。
+impl Clone for Workspace {
+    fn clone(&self) -> Self {
+        Self { root: self.root.clone(), lock_file: None }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

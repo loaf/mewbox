@@ -1,5 +1,6 @@
 mod commands;
 
+pub mod ai;
 pub mod assets;
 pub mod assoc;
 pub mod config;
@@ -10,6 +11,7 @@ pub mod index;
 pub mod links;
 pub mod llm;
 pub mod materials;
+pub mod prompts;
 pub mod publish;
 pub mod scan;
 pub mod state;
@@ -173,7 +175,25 @@ pub fn run() {
             commands::health_check,
             commands::clean_orphan_assets,
             commands::list_kb_dirs,
-            commands::create_kb_dir
+            commands::create_kb_dir,
+            commands::ai_run_op,
+            commands::ai_cancel,
+            commands::ai_adopt_result,
+            commands::ai_discard_result,
+            commands::ai_save_as_material,
+            commands::ai_describe_attachment,
+            commands::ai_apply_suggestions,
+            commands::ai_test_connection,
+            commands::ai_list_providers,
+            commands::ai_save_provider,
+            commands::ai_delete_provider,
+            commands::ai_save_ai_config,
+            commands::ai_set_key,
+            commands::ai_has_key,
+            commands::ai_delete_key,
+            commands::ai_usage,
+            commands::ai_clear_calls,
+            commands::ai_search_materials
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

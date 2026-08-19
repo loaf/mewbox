@@ -1,5 +1,6 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::assets;
 use crate::assoc::{self, AssocBlock, AssocEntry};
@@ -32,6 +33,8 @@ pub enum AppError {
     Config(#[from] crate::config::ConfigError),
     #[error("虚拟目录: {0}")]
     VFolder(#[from] vfolder::VFolderError),
+    #[error("AI: {0}")]
+    Ai(String),
     #[error("{0}")]
     NotFound(String),
 }
@@ -158,9 +161,26 @@ pub struct VersionContent {
 }
 
 /// 命令层核心：所有业务方法都在这（Tauri command 只做薄封装，可独立测试）。
+/// idx/keys/ai_tasks 经 Arc 共享 → AppState 可克隆进异步 AI 任务（修订决策 1）。
 pub struct AppState {
     pub ws: Workspace,
-    pub idx: Mutex<Index>,
+    pub idx: Arc<Mutex<Index>>,
+    /// 钥匙串（真实现 = 系统凭据管理器；测试注入内存假实现）
+    pub keys: Arc<dyn crate::llm::KeyStore>,
+    /// 进行中的 AI 任务（call_id → AbortHandle；任务结束时自行移除）
+    pub ai_tasks: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
+}
+
+/// 廉价克隆（Arc 计数 + 工作区句柄）；索引/任务表与原实例共享。
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        Self {
+            ws: self.ws.clone(),
+            idx: Arc::clone(&self.idx),
+            keys: Arc::clone(&self.keys),
+            ai_tasks: Arc::clone(&self.ai_tasks),
+        }
+    }
 }
 
 impl AppState {
@@ -168,7 +188,9 @@ impl AppState {
         let idx = Index::open(&ws.root.join(".index").join("index.db"))?;
         Ok(Self {
             ws,
-            idx: Mutex::new(idx),
+            idx: Arc::new(Mutex::new(idx)),
+            keys: Arc::new(crate::llm::KeyringStore),
+            ai_tasks: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -762,7 +784,7 @@ impl AppState {
         })?)
     }
 
-    fn meta_by_id(&self, id: &str) -> AppResult<FileMeta> {
+    pub(crate) fn meta_by_id(&self, id: &str) -> AppResult<FileMeta> {
         Ok(self.with_idx(|idx| {
             Ok(idx
                 .get_file(id)?
@@ -770,7 +792,6 @@ impl AppState {
                 .ok_or_else(|| AppError::NotFound(format!("找不到文件 {id}")))?)
         })?)
     }
-
     /// 含回收站行的查找（恢复操作用）。
     fn meta_by_id_any(&self, id: &str) -> AppResult<FileMeta> {
         Ok(self.with_idx(|idx| {
@@ -781,7 +802,7 @@ impl AppState {
     }
 
     /// 读任一文件（post/material）：(fm, 纯正文, 块)。
-    fn read_any(&self, rel_path: &str) -> AppResult<(Frontmatter, String, Option<AssocBlock>)> {
+    pub(crate) fn read_any(&self, rel_path: &str) -> AppResult<(Frontmatter, String, Option<AssocBlock>)> {
         let content = std::fs::read_to_string(self.ws.root.join(rel_path))?;
         let (fm, body_with_block) = frontmatter::parse(&content)?;
         let (clean, block) = assoc::strip_assoc(&body_with_block);
@@ -1546,10 +1567,12 @@ mod tests {
     fn state() -> (tempfile::TempDir, AppState) {
         let dir = tempfile::tempdir().unwrap();
         let ws = Workspace::init(dir.path()).unwrap();
-        // 测试用内存库，避免落盘锁冲突
+        // 测试用内存库，避免落盘锁冲突；钥匙串用内存假实现（不碰系统凭据管理器）
         let state = AppState {
+            keys: Arc::new(crate::llm::InMemoryKeyStore::default()),
+            idx: Arc::new(Mutex::new(Index::open_in_memory().unwrap())),
+            ai_tasks: Arc::new(Mutex::new(HashMap::new())),
             ws,
-            idx: Mutex::new(Index::open_in_memory().unwrap()),
         };
         (dir, state)
     }

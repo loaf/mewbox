@@ -438,6 +438,8 @@ where
 {
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(15))
+        // 整次调用（含流式读体）120s 上限：防呆挂死流（单次受控调用，不重试）
+        .timeout(std::time::Duration::from_secs(120))
         .build()?;
     let mut rb = client
         .post(kind.endpoint(base_url))
