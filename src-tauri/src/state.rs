@@ -527,13 +527,20 @@ impl AppState {
         base_id: &str,
         target: &str,
         from_snapshot: Option<String>,
+        current_body: Option<String>,
     ) -> AppResult<VersionContent> {
         let (meta, abs) = self.meta_path(base_id)?;
         let (from_body, forked) = match &from_snapshot {
             Some(f) => (history::read_snapshot_body(&self.ws, base_id, f)?, Some(f.clone())),
             None => {
-                let content = std::fs::read_to_string(&abs)?;
-                let (_, body) = frontmatter::parse(&content)?;
+                // 编辑器当前正文优先（flush 后由前端传入），文件读取兜底
+                let body = match &current_body {
+                    Some(b) => b.clone(),
+                    None => {
+                        let content = std::fs::read_to_string(&abs)?;
+                        frontmatter::parse(&content).map(|(_, body)| body)?
+                    }
+                };
                 (body, None)
             }
         };
@@ -567,7 +574,7 @@ impl AppState {
         target: &str,
         body: &str,
     ) -> AppResult<SaveResult> {
-        let (fm, prev_body) = publish::read_version_body(&self.ws, base_id, target)?;
+        let (_, prev_body) = publish::read_version_body(&self.ws, base_id, target)?;
         let snapshotted = history::is_material_change(&prev_body, body);
         let s = self.with_idx(|idx| {
             Ok(publish::save_version(&self.ws, idx, base_id, target, body)?)
@@ -792,7 +799,7 @@ mod tests {
         let p = st.create_post("深度工作", None).unwrap();
         st.save_post(&p.id, "母版 v1\n\n![](../_assets/a.png)\n").unwrap();
 
-        let v = st.create_publish_version(&p.id, "wechat", None).unwrap();
+        let v = st.create_publish_version(&p.id, "wechat", None, None).unwrap();
         assert_eq!(v.base, p.id);
         assert_eq!(v.target, "wechat");
         assert!(v.body.contains("../../../_assets/a.png"), "{}", v.body);
@@ -822,7 +829,7 @@ mod tests {
         let snaps = st.list_snapshots(&p.id).unwrap();
         // 快照指纹是完整文件内容的 hash；最旧那份即 v1（先保存）
         let snap_file = snaps.last().unwrap().file_name.clone();
-        let v = st.create_publish_version(&p.id, "blog", Some(snap_file.clone())).unwrap();
+        let v = st.create_publish_version(&p.id, "blog", Some(snap_file.clone()), None).unwrap();
         // forked_from 已写入版本文件 frontmatter
         let content = std::fs::read_to_string(
             st.ws.root.join(format!(".versions/{}/publish/blog.md", p.id)),
@@ -833,10 +840,30 @@ mod tests {
     }
 
     #[test]
+    fn create_with_current_body_uses_editor_content() {
+        let (_d, st) = state();
+        let p = st.create_post("深度工作", None).unwrap();
+        st.save_post(&p.id, "磁盘上的旧内容").unwrap();
+        // 编辑器当前正文与磁盘不一致时以编辑器为准（保存可见性竞态的根治）；
+        // 链接重写照常工作
+        let v = st
+            .create_publish_version(
+                &p.id,
+                "wechat",
+                None,
+                Some("编辑器最新内容\n\n![](../_assets/a.png)\n".into()),
+            )
+            .unwrap();
+        assert!(v.body.contains("编辑器最新内容"), "{}", v.body);
+        assert!(v.body.contains("../../../_assets/a.png"), "{}", v.body);
+        assert!(!v.body.contains("磁盘上的旧内容"));
+    }
+
+    #[test]
     fn orphan_version_reported_and_trashed_base_not_orphan() {
         let (_d, st) = state();
         let p = st.create_post("A", None).unwrap();
-        st.create_publish_version(&p.id, "wechat", None).unwrap();
+        st.create_publish_version(&p.id, "wechat", None, None).unwrap();
         // 正常状态：无孤儿
         assert!(st.scan_refresh().unwrap().orphan_versions.is_empty());
         // base 进回收站：不算孤儿（DESIGN-REVIEW 遗漏 4）
@@ -856,7 +883,7 @@ mod tests {
     fn save_pasted_image_at_relative() {
         let (_d, st) = state();
         let p = st.create_post("A", None).unwrap();
-        st.create_publish_version(&p.id, "wechat", None).unwrap();
+        st.create_publish_version(&p.id, "wechat", None, None).unwrap();
         let version_rel = format!(".versions/{}/publish/wechat.md", p.id);
         let rel = st
             .save_pasted_image_at(&version_rel, b"img-bytes", "png")

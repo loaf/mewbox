@@ -145,8 +145,14 @@ export const api = {
     baseId: string,
     target: string,
     fromSnapshot?: string | null,
+    currentBody?: string | null,
   ): Promise<VersionContent> =>
-    invoke("create_publish_version", { baseId, target, fromSnapshot: fromSnapshot ?? null }),
+    invoke("create_publish_version", {
+      baseId,
+      target,
+      fromSnapshot: fromSnapshot ?? null,
+      currentBody: currentBody ?? null,
+    }),
   readPublishVersion: (baseId: string, target: string): Promise<VersionContent> =>
     invoke("read_publish_version", { baseId, target }),
   savePublishVersion: (baseId: string, target: string, content: string): Promise<SaveResult> =>

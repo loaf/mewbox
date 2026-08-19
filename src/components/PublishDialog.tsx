@@ -51,7 +51,10 @@ export function PublishDialog({
       if (saveToRegistry && !targets.some((t) => t.id === name)) {
         await api.addPublishTarget(name, name, "").catch(() => undefined); // 注册表是便利设施，失败不阻塞
       }
-      await api.createPublishVersion(baseId, name, fromSnapshot || null);
+      // 双保险：把 flush 后 store 中的母版正文显式传给创建命令（文件读取仅兜底），
+      // 杜绝「已保存但读文件仍见旧内容」的可见性竞态
+      const currentBody = useApp.getState().selected?.body ?? null;
+      await api.createPublishVersion(baseId, name, fromSnapshot || null, currentBody);
       await selectVersion(baseId, name);
       onClose();
     } catch (e) {

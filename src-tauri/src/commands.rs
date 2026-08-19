@@ -184,8 +184,9 @@ pub fn create_publish_version(
     base_id: String,
     target: String,
     from_snapshot: Option<String>,
+    current_body: Option<String>,
 ) -> AppResult<VersionContent> {
-    state.create_publish_version(&base_id, &target, from_snapshot)
+    state.create_publish_version(&base_id, &target, from_snapshot, current_body)
 }
 
 #[tauri::command]

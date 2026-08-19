@@ -53,16 +53,23 @@ describe("PublishDialog", () => {
     );
   });
 
-  test("新建版本：输入目标名 → createPublishVersion 并切换版本态；新名入注册表", async () => {
+  test("新建版本：输入目标名 → createPublishVersion（带母版当前正文）并切换版本态；新名入注册表", async () => {
     apiMocks.listPublishVersions.mockResolvedValue([]);
     apiMocks.createPublishVersion.mockResolvedValue({
       id: "v-new", base: "p1", target: "weibo", title: "T", body: "", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/weibo.md",
+    });
+    // store 里有母版（flush 后正文），创建命令应显式携带
+    useApp.setState({
+      selectedId: "p1",
+      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "母版当前正文", path: "posts/a.md" },
     });
     render(<PublishDialog open baseId="p1" onClose={vi.fn()} />);
     await screen.findByTestId("publish-dialog");
     await userEvent.type(screen.getByTestId("new-target-name"), "weibo");
     fireEvent.click(screen.getByTestId("create-version-btn"));
-    await waitFor(() => expect(apiMocks.createPublishVersion).toHaveBeenCalledWith("p1", "weibo", null));
+    await waitFor(() =>
+      expect(apiMocks.createPublishVersion).toHaveBeenCalledWith("p1", "weibo", null, "母版当前正文"),
+    );
     expect(apiMocks.addPublishTarget).toHaveBeenCalledWith("weibo", "weibo", "");
     await waitFor(() => expect(useApp.getState().view).toEqual({ kind: "version", baseId: "p1", target: "weibo" }));
   });
@@ -91,7 +98,7 @@ describe("PublishDialog", () => {
     await userEvent.selectOptions(screen.getByTestId("fork-snapshot"), "20260818-090503-8d1f0a1c.md");
     fireEvent.click(screen.getByTestId("create-version-btn"));
     await waitFor(() =>
-      expect(apiMocks.createPublishVersion).toHaveBeenCalledWith("p1", "blog", "20260818-090503-8d1f0a1c.md"),
+      expect(apiMocks.createPublishVersion).toHaveBeenCalledWith("p1", "blog", "20260818-090503-8d1f0a1c.md", null),
     );
   });
 
