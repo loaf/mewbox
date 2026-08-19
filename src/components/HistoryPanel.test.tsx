@@ -8,16 +8,23 @@ const apiMocks = vi.hoisted(() => ({
   restoreSnapshot: vi.fn(),
   setSnapshotMilestone: vi.fn(),
   readPost: vi.fn(),
+  listVersionSnapshots: vi.fn(),
+  readVersionSnapshot: vi.fn(),
+  restoreVersionSnapshot: vi.fn(),
+  setVersionMilestone: vi.fn(),
+  readPublishVersion: vi.fn(),
+}));
+
+const storeState = vi.hoisted(() => ({
+  view: { kind: "post" } as { kind: "post" } | { kind: "version"; baseId: string; target: string },
+  selectedId: "p1",
+  reloadPost: async () => {},
+  reloadVersion: async () => {},
 }));
 
 vi.mock("../lib/api", () => ({ api: apiMocks }));
 vi.mock("../stores/app", () => ({
-  useApp: vi.fn((sel) =>
-    sel({
-      selectedId: "p1",
-      reloadPost: async () => {},
-    }),
-  ),
+  useApp: (sel: (s: unknown) => unknown) => sel(storeState),
 }));
 
 const SNAP = (ts: string, hash8: string, milestone: string | null = null) => ({
@@ -101,5 +108,22 @@ describe("HistoryPanel", () => {
         "交稿版",
       ),
     );
+  });
+
+  test("版本态下列表/恢复走版本历史命令", async () => {
+    storeState.view = { kind: "version", baseId: "p1", target: "wechat" };
+    apiMocks.listVersionSnapshots.mockResolvedValue([SNAP("2026-08-18T10:00:00", "vvvv0001")]);
+    apiMocks.readPublishVersion.mockResolvedValue({
+      id: "v1", base: "p1", target: "wechat", title: "T", body: "版本当前", publishedUrl: null, publishedAt: null,
+    });
+    apiMocks.restoreVersionSnapshot.mockResolvedValue({});
+    render(<HistoryPanel />);
+    await screen.findByTestId("history-list");
+    expect(apiMocks.listVersionSnapshots).toHaveBeenCalledWith("p1", "wechat");
+    fireEvent.click(screen.getByTestId("restore-btn"));
+    await waitFor(() =>
+      expect(apiMocks.restoreVersionSnapshot).toHaveBeenCalledWith("p1", "wechat", expect.stringContaining("vvvv0001")),
+    );
+    storeState.view = { kind: "post" };
   });
 });

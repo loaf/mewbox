@@ -71,6 +71,34 @@ export interface ScanReport {
   pendingImport: { path: string }[];
   slugConflicts: string[];
   missing: string[];
+  orphanVersions: string[];
+}
+
+export interface PublishVersionSummary {
+  id: string;
+  base: string;
+  target: string;
+  title: string;
+  publishedUrl: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+  path: string;
+}
+
+export interface VersionContent {
+  id: string;
+  base: string;
+  target: string;
+  title: string;
+  body: string;
+  publishedUrl: string | null;
+  publishedAt: string | null;
+}
+
+export interface PublishTarget {
+  id: string;
+  display: string;
+  note: string;
 }
 
 export const api = {
@@ -100,8 +128,43 @@ export const api = {
     invoke("set_snapshot_milestone", { id, snapshotFile, name }),
   savePastedImage: (postId: string, bytes: Uint8Array, ext: string): Promise<string> =>
     invoke("save_pasted_image", { postId, bytes: Array.from(bytes), ext }),
+  savePastedImageAt: (fileRelPath: string, bytes: Uint8Array, ext: string): Promise<string> =>
+    invoke("save_pasted_image_at", { fileRelPath, bytes: Array.from(bytes), ext }),
   searchPosts: (query: string): Promise<SearchHit[]> => invoke("search_posts", { query }),
   scanRefresh: (): Promise<ScanReport> => invoke("scan_refresh"),
   importExternal: (path: string): Promise<PostSummary> =>
     invoke("import_external", { path }),
+  // ───── 发布版本（M2） ─────
+  listPublishVersions: (baseId: string): Promise<PublishVersionSummary[]> =>
+    invoke("list_publish_versions", { baseId }),
+  createPublishVersion: (
+    baseId: string,
+    target: string,
+    fromSnapshot?: string | null,
+  ): Promise<VersionContent> =>
+    invoke("create_publish_version", { baseId, target, fromSnapshot: fromSnapshot ?? null }),
+  readPublishVersion: (baseId: string, target: string): Promise<VersionContent> =>
+    invoke("read_publish_version", { baseId, target }),
+  savePublishVersion: (baseId: string, target: string, content: string): Promise<SaveResult> =>
+    invoke("save_publish_version", { baseId, target, content }),
+  syncPublishFromPost: (baseId: string, target: string): Promise<VersionContent> =>
+    invoke("sync_publish_from_post", { baseId, target }),
+  setPublishPublished: (
+    baseId: string,
+    target: string,
+    url: string | null,
+    date: string | null,
+  ): Promise<PublishVersionSummary> =>
+    invoke("set_publish_published", { baseId, target, url, date }),
+  listVersionSnapshots: (baseId: string, target: string): Promise<SnapshotEntry[]> =>
+    invoke("list_version_snapshots", { baseId, target }),
+  readVersionSnapshot: (baseId: string, target: string, snapshotFile: string): Promise<string> =>
+    invoke("read_version_snapshot", { baseId, target, snapshotFile }),
+  restoreVersionSnapshot: (baseId: string, target: string, snapshotFile: string): Promise<VersionContent> =>
+    invoke("restore_version_snapshot", { baseId, target, snapshotFile }),
+  setVersionMilestone: (baseId: string, target: string, snapshotFile: string, name: string): Promise<void> =>
+    invoke("set_version_milestone", { baseId, target, snapshotFile, name }),
+  listPublishTargets: (): Promise<PublishTarget[]> => invoke("list_publish_targets"),
+  addPublishTarget: (id: string, display: string, note: string): Promise<void> =>
+    invoke("add_publish_target", { id, display, note }),
 };

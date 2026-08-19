@@ -1,17 +1,21 @@
 import { create } from "zustand";
-import { api, PostContent, PostSummary, TreeNode, TrashItem } from "../lib/api";
+import { api, PostContent, PostSummary, TreeNode, TrashItem, VersionContent } from "../lib/api";
 
 export type ViewMode = "edit" | "live" | "preview";
 export type RightTab = "outline" | "history";
 export type SaveState = "saved" | "saving" | "dirty";
+/** 编辑目标：文稿 或 发布版本（版本不进侧栏，由入口切换；DESIGN §5.2） */
+export type EditorView = { kind: "post" } | { kind: "version"; baseId: string; target: string };
 
 interface AppStore {
   loading: boolean;
   tree: TreeNode[];
   posts: PostSummary[];
   trash: TrashItem[];
+  view: EditorView;
   selectedId: string | null;
   selected: PostContent | null;
+  version: VersionContent | null;
   saveState: SaveState;
   savedAt: string | null;
   viewMode: ViewMode;
@@ -22,6 +26,9 @@ interface AppStore {
 
   load(): Promise<void>;
   select(id: string | null): Promise<void>;
+  selectVersion(baseId: string, target: string): Promise<void>;
+  backToPost(): Promise<void>;
+  reloadVersion(): Promise<void>;
   create(title: string, folder?: string): Promise<void>;
   registerFlush(fn: (() => Promise<void>) | null): void;
   setDirty(): void;
@@ -38,8 +45,10 @@ export const useApp = create<AppStore>((set, get) => ({
   tree: [],
   posts: [],
   trash: [],
+  view: { kind: "post" },
   selectedId: null,
   selected: null,
+  version: null,
   saveState: "saved",
   savedAt: null,
   viewMode: "edit",
@@ -54,15 +63,43 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   select: async (id) => {
-    const { flushFn, selectedId } = get();
-    if (id === selectedId) return;
+    const { flushFn, selectedId, view } = get();
+    if (id === selectedId && view.kind === "post") return;
     if (flushFn) await flushFn(); // 切换前强制落盘
     if (id === null) {
-      set({ selectedId: null, selected: null, saveState: "saved" });
+      set({ view: { kind: "post" }, selectedId: null, selected: null, version: null, saveState: "saved" });
       return;
     }
     const selected = await api.readPost(id);
-    set({ selectedId: id, selected, saveState: "saved", savedAt: null });
+    set({ view: { kind: "post" }, selectedId: id, selected, version: null, saveState: "saved", savedAt: null });
+  },
+
+  selectVersion: async (baseId, target) => {
+    const { flushFn } = get();
+    if (flushFn) await flushFn();
+    const version = await api.readPublishVersion(baseId, target);
+    set({
+      view: { kind: "version", baseId, target },
+      selectedId: null,
+      selected: null,
+      version,
+      saveState: "saved",
+      savedAt: null,
+    });
+  },
+
+  backToPost: async () => {
+    const { view } = get();
+    if (view.kind !== "version") return;
+    const baseId = view.baseId;
+    await get().select(baseId);
+  },
+
+  reloadVersion: async () => {
+    const { view } = get();
+    if (view.kind !== "version") return;
+    const version = await api.readPublishVersion(view.baseId, view.target);
+    set({ version });
   },
 
   create: async (title, folder) => {

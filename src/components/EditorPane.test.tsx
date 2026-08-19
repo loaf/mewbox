@@ -7,6 +7,9 @@ const apiMocks = vi.hoisted(() => ({
   setPostTitle: vi.fn(),
   setPostStatus: vi.fn(),
   savePastedImage: vi.fn(),
+  savePastedImageAt: vi.fn(),
+  savePublishVersion: vi.fn(),
+  readPublishVersion: vi.fn(),
   listPosts: vi.fn(),
   listTrash: vi.fn().mockResolvedValue([]),
   readPost: vi.fn(),
@@ -150,5 +153,73 @@ describe("EditorPane", () => {
     await waitFor(() => expect(apiMocks.setPostTitle).toHaveBeenCalledWith("p1", "新标题"));
     fireEvent.change(screen.getByTestId("editor-status"), { target: { value: "done" } });
     await waitFor(() => expect(apiMocks.setPostStatus).toHaveBeenCalledWith("p1", "done"));
+  });
+
+  // ───── 发布版本模式（M2） ─────
+
+  const versionContent = {
+    id: "vid-1",
+    base: "p1",
+    target: "wechat",
+    title: "公众号版",
+    body: "版本初始内容",
+    publishedUrl: null as string | null,
+    publishedAt: null as string | null,
+  };
+
+  async function mountVersion() {
+    apiMocks.listPosts.mockResolvedValue({ tree: [], posts: [] });
+    useApp.setState({
+      view: { kind: "version", baseId: "p1", target: "wechat" },
+      selectedId: null,
+      selected: null,
+      version: { ...versionContent },
+      posts: [{ id: "p1", title: "母版标题", folder: null, status: "draft", tags: [], path: "posts/a.md", updatedAt: "t" }],
+      saveState: "saved",
+      savedAt: null,
+      flushFn: null,
+      viewMode: "edit",
+      loading: false,
+    });
+    render(<EditorPane />);
+  }
+
+  test("版本态：归属横幅 + 回到母版 + 保存走 savePublishVersion", async () => {
+    apiMocks.savePublishVersion.mockResolvedValue({ updatedAt: "2026-08-19T12:00:00", snapshotted: true });
+    apiMocks.readPost.mockResolvedValue(post());
+    await mountVersion();
+    const banner = screen.getByTestId("version-banner");
+    expect(banner.textContent).toContain("wechat 版");
+    expect(banner.textContent).toContain("母版标题");
+    // 编辑保存走版本命令
+    fireEvent.change(screen.getByTestId("md-textarea"), { target: { value: "改公众号版" } });
+    await waitFor(() =>
+      expect(apiMocks.savePublishVersion).toHaveBeenCalledWith("p1", "wechat", "改公众号版"),
+    );
+    expect(apiMocks.savePost).not.toHaveBeenCalled();
+    // 回到母版
+    fireEvent.click(screen.getByTestId("back-to-post"));
+    await waitFor(() =>
+      expect(useApp.getState().view).toEqual({ kind: "post" }),
+    );
+  });
+
+  test("版本态贴图走 savePastedImageAt（版本文件路径）", async () => {
+    apiMocks.savePastedImageAt.mockResolvedValue("../../../_assets/abc.png");
+    await mountVersion();
+    const ta = screen.getByTestId("md-textarea") as HTMLTextAreaElement;
+    const file = new File([new Uint8Array([1])], "x.png", { type: "image/png" });
+    await act(async () => {
+      fireEvent.paste(ta, {
+        clipboardData: { items: [{ type: "image/png", getAsFile: () => file }] },
+      });
+    });
+    await waitFor(() =>
+      expect(apiMocks.savePastedImageAt).toHaveBeenCalledWith(
+        ".versions/p1/publish/wechat.md",
+        expect.any(Uint8Array),
+        "png",
+      ),
+    );
   });
 });

@@ -4,29 +4,40 @@ import { api, SnapshotEntry } from "../lib/api";
 import { useApp } from "../stores/app";
 
 function formatTs(ts: string): string {
-  // ts: "2026-08-18T09:05:03" → "08-18 09:05"
   const m = ts.match(/^\d{4}-(\d{2}-\d{2})T(\d{2}:\d{2})/);
   return m ? `${m[1]} ${m[2]}` : ts;
 }
 
 export function HistoryPanel() {
+  const view = useApp((s) => s.view);
   const selectedId = useApp((s) => s.selectedId);
   const reloadPost = useApp((s) => s.reloadPost);
+  const reloadVersion = useApp((s) => s.reloadVersion);
   const [snapshots, setSnapshots] = useState<SnapshotEntry[]>([]);
   const [openSnap, setOpenSnap] = useState<string | null>(null);
   const [snapBody, setSnapBody] = useState("");
   const [currentBody, setCurrentBody] = useState("");
   const [milestoneFor, setMilestoneFor] = useState<string | null>(null);
 
+  const isVersion = view.kind === "version";
+  const baseId = isVersion ? view.baseId : selectedId;
+  const target = isVersion ? view.target : null;
+
   const refresh = useCallback(async () => {
-    if (!selectedId) return;
-    const [snaps, post] = await Promise.all([
-      api.listSnapshots(selectedId),
-      api.readPost(selectedId),
-    ]);
-    setSnapshots(snaps);
-    setCurrentBody(post.body);
-  }, [selectedId]);
+    if (!baseId) return;
+    if (isVersion && target) {
+      const [snaps, v] = await Promise.all([
+        api.listVersionSnapshots(baseId, target),
+        api.readPublishVersion(baseId, target),
+      ]);
+      setSnapshots(snaps);
+      setCurrentBody(v.body);
+    } else {
+      const [snaps, post] = await Promise.all([api.listSnapshots(baseId!), api.readPost(baseId!)]);
+      setSnapshots(snaps);
+      setCurrentBody(post.body);
+    }
+  }, [baseId, target, isVersion]);
 
   useEffect(() => {
     setOpenSnap(null);
@@ -34,26 +45,39 @@ export function HistoryPanel() {
   }, [refresh]);
 
   const openDiff = async (fileName: string) => {
-    if (!selectedId) return;
+    if (!baseId) return;
     if (openSnap === fileName) {
       setOpenSnap(null);
       return;
     }
-    setSnapBody(await api.readSnapshot(selectedId, fileName));
+    setSnapBody(
+      isVersion && target
+        ? await api.readVersionSnapshot(baseId, target, fileName)
+        : await api.readSnapshot(baseId!, fileName),
+    );
     setOpenSnap(fileName);
   };
 
   const onRestore = async (fileName: string) => {
-    if (!selectedId) return;
+    if (!baseId) return;
     if (!window.confirm("恢复到这份快照？当前内容会先自动存入历史（不会丢失）。")) return;
-    await api.restoreSnapshot(selectedId, fileName);
-    await reloadPost();
+    if (isVersion && target) {
+      await api.restoreVersionSnapshot(baseId, target, fileName);
+      await reloadVersion();
+    } else {
+      await api.restoreSnapshot(baseId!, fileName);
+      await reloadPost();
+    }
     await refresh();
   };
 
   const onMilestone = async (name: string) => {
-    if (!selectedId || !milestoneFor) return;
-    await api.setSnapshotMilestone(selectedId, milestoneFor, name);
+    if (!baseId || !milestoneFor) return;
+    if (isVersion && target) {
+      await api.setVersionMilestone(baseId, target, milestoneFor, name);
+    } else {
+      await api.setSnapshotMilestone(baseId!, milestoneFor, name);
+    }
     setMilestoneFor(null);
     await refresh();
   };
@@ -66,8 +90,7 @@ export function HistoryPanel() {
     );
   }
 
-  const diff =
-    openSnap !== null ? diffLines(snapBody, currentBody) : [];
+  const diff = openSnap !== null ? diffLines(snapBody, currentBody) : [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="history-list">
