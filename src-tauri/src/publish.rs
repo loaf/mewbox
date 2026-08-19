@@ -442,7 +442,9 @@ pub fn create_version(
     }
     let mut fm = PublishFrontmatter::new(base_id, target, post_title);
     fm.forked_from = forked_from;
-    let body = rewrite_relative_links(from_body, from_dir, &publish_dir_rel(base_id));
+    // 机制决策 2：发布版本不携带母版的尾部关联块（决策 9）
+    let (clean_from, _) = crate::assoc::strip_assoc(from_body);
+    let body = rewrite_relative_links(&clean_from, from_dir, &publish_dir_rel(base_id));
     let full = fm.to_content(&body);
     std::fs::create_dir_all(path.parent().unwrap())?;
     std::fs::write(&path, &full)?;
@@ -621,7 +623,8 @@ pub fn sync_from_post(
         &prev_full,
     )
     .map_err(PublishError::from)?;
-    let body = rewrite_relative_links(post_body, post_dir, &publish_dir_rel(base_id));
+    let (clean_post, _) = crate::assoc::strip_assoc(post_body);
+    let body = rewrite_relative_links(&clean_post, post_dir, &publish_dir_rel(base_id));
     fm.bump_updated();
     let full = fm.to_content(&body);
     std::fs::write(&path, &full)?;

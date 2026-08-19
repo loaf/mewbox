@@ -363,7 +363,7 @@ mod tests {
         std::fs::write(&src, b"fake-pdf-bytes").unwrap();
         let rel = import_file_containerized(&w, &src).unwrap();
         assert!(rel.starts_with("kb/Inbox/"), "{rel}");
-        let (fm, body, _) = read_material_file(&w, &rel).unwrap();
+        let (_, body, _) = read_material_file(&w, &rel).unwrap();
         assert!(body.contains("[原件：论文.pdf]("));
         assert!(body.contains("../_assets/"), "{body}");
         let content = std::fs::read_to_string(w.root.join(&rel)).unwrap();

@@ -4,6 +4,7 @@ pub mod assets;
 pub mod assoc;
 pub mod config;
 pub mod frontmatter;
+pub mod health;
 pub mod history;
 pub mod index;
 pub mod links;
@@ -147,7 +148,28 @@ pub fn run() {
             commands::set_version_milestone,
             commands::list_publish_targets,
             commands::add_publish_target,
-            commands::save_pasted_image_at
+            commands::save_pasted_image_at,
+            commands::list_materials,
+            commands::create_material,
+            commands::read_material,
+            commands::save_material,
+            commands::set_material_title,
+            commands::import_md_files,
+            commands::import_files_containerized,
+            commands::move_material_to_trash,
+            commands::list_material_trash,
+            commands::restore_material,
+            commands::convert_material_to_post,
+            commands::convert_post_to_material,
+            commands::rename_post_slug,
+            commands::rename_material_file,
+            commands::move_material,
+            commands::rename_kb_dir,
+            commands::update_assoc,
+            commands::backlinks,
+            commands::resolve_wiki,
+            commands::health_check,
+            commands::clean_orphan_assets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

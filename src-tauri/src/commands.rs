@@ -1,11 +1,12 @@
 use crate::config::PublishTarget;
 use crate::history::SnapshotEntry;
 use crate::index::SearchHit;
+use crate::materials::MaterialSummary;
 use crate::publish::VersionSummary;
 use crate::scan::ScanReport;
 use crate::state::{
-    AppError, AppResult, PostContent, PostSummary, PostsPayload, SaveResult, TrashItem,
-    VersionContent,
+    AppError, AppResult, Backlink, MaterialContent, PostContent, PostSummary, PostsPayload,
+    SaveResult, TrashItem, VersionContent, WikiResolve,
 };
 use crate::AppState;
 
@@ -291,6 +292,162 @@ pub fn save_pasted_image_at(
     ext: String,
 ) -> AppResult<String> {
     state.save_pasted_image_at(&file_rel_path, &bytes, &ext)
+}
+
+// ───── 知识库与关联体系（M3） ─────
+
+#[tauri::command]
+pub fn list_materials(state: tauri::State<'_, AppState>) -> AppResult<Vec<MaterialSummary>> {
+    state.list_materials()
+}
+
+#[tauri::command]
+pub fn create_material(
+    state: tauri::State<'_, AppState>,
+    title: String,
+    dir: String,
+) -> AppResult<MaterialContent> {
+    state.create_material(&title, &dir)
+}
+
+#[tauri::command]
+pub fn read_material(state: tauri::State<'_, AppState>, id: String) -> AppResult<MaterialContent> {
+    state.read_material(&id)
+}
+
+#[tauri::command]
+pub fn save_material(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    content: String,
+) -> AppResult<SaveResult> {
+    state.save_material(&id, &content)
+}
+
+#[tauri::command]
+pub fn set_material_title(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    title: String,
+) -> AppResult<MaterialSummary> {
+    state.set_material_title(&id, &title)
+}
+
+#[tauri::command]
+pub fn import_md_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+    dest_dir: String,
+) -> AppResult<Vec<MaterialSummary>> {
+    state.import_md_files(&paths, &dest_dir)
+}
+
+#[tauri::command]
+pub fn import_files_containerized(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> AppResult<Vec<MaterialSummary>> {
+    state.import_files_containerized(&paths)
+}
+
+#[tauri::command]
+pub fn move_material_to_trash(state: tauri::State<'_, AppState>, id: String) -> AppResult<()> {
+    state.move_material_to_trash(&id)
+}
+
+#[tauri::command]
+pub fn list_material_trash(state: tauri::State<'_, AppState>) -> AppResult<Vec<TrashItem>> {
+    state.list_material_trash()
+}
+
+#[tauri::command]
+pub fn restore_material(state: tauri::State<'_, AppState>, id: String) -> AppResult<MaterialSummary> {
+    state.restore_material(&id)
+}
+
+#[tauri::command]
+pub fn convert_material_to_post(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> AppResult<PostSummary> {
+    state.convert_material_to_post(&id)
+}
+
+#[tauri::command]
+pub fn convert_post_to_material(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> AppResult<MaterialSummary> {
+    state.convert_post_to_material(&id)
+}
+
+#[tauri::command]
+pub fn rename_post_slug(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    new_slug: String,
+) -> AppResult<PostSummary> {
+    state.rename_post_slug(&id, &new_slug)
+}
+
+#[tauri::command]
+pub fn rename_material_file(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    new_name: String,
+) -> AppResult<MaterialSummary> {
+    state.rename_material_file(&id, &new_name)
+}
+
+#[tauri::command]
+pub fn move_material(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    new_dir: String,
+) -> AppResult<MaterialSummary> {
+    state.move_material(&id, &new_dir)
+}
+
+#[tauri::command]
+pub fn rename_kb_dir(
+    state: tauri::State<'_, AppState>,
+    dir: String,
+    new_name: String,
+) -> AppResult<Vec<MaterialSummary>> {
+    state.rename_kb_dir(&dir, &new_name)
+}
+
+#[tauri::command]
+pub fn update_assoc(
+    state: tauri::State<'_, AppState>,
+    a_id: String,
+    b_id: String,
+    add: bool,
+) -> AppResult<()> {
+    state.update_assoc(&a_id, &b_id, add)
+}
+
+#[tauri::command]
+pub fn backlinks(state: tauri::State<'_, AppState>, id: String) -> AppResult<Vec<Backlink>> {
+    state.backlinks(&id)
+}
+
+#[tauri::command]
+pub fn resolve_wiki(state: tauri::State<'_, AppState>, title: String) -> AppResult<WikiResolve> {
+    state.resolve_wiki(&title)
+}
+
+#[tauri::command]
+pub fn health_check(state: tauri::State<'_, AppState>) -> AppResult<crate::health::HealthReport> {
+    state.health_check()
+}
+
+#[tauri::command]
+pub fn clean_orphan_assets(
+    state: tauri::State<'_, AppState>,
+    fingerprints: Vec<String>,
+) -> AppResult<usize> {
+    state.clean_orphan_assets(&fingerprints)
 }
 
 // AppError 已实现 Serialize（字符串形式），命令可直接返回 Result

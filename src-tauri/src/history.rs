@@ -396,7 +396,9 @@ pub fn purge_trash(
     idx: &crate::index::Index,
     now: &DateTime<Utc>,
 ) -> Result<usize, HistoryError> {
-    let metas = idx.list_by_kind("post", true)?;
+    // 回收站到期清理覆盖文稿与资料（M3 机制决策 4）
+    let mut metas = idx.list_by_kind("post", true)?;
+    metas.extend(idx.list_by_kind("material", true)?);
     let mut purged = 0;
     for m in metas {
         let Some(deleted_at) = &m.deleted_at else {
