@@ -7,8 +7,44 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import remarkEmoji from "remark-emoji";
 import { visit } from "unist-util-visit";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
+
+// ═══════ 工作区相对资源 → asset 协议 URL（贴图预览） ═══════
+// webview 无法直接读磁盘相对路径（../_assets/… 相对的是页面 origin 而非工作区），
+// 经 convertFileSrc（Tauri assetProtocol，已在 tauri.conf.json 开启）映射本地文件。
+
+/** 预览上下文：工作区根（绝对）与当前文件所在目录（工作区相对）。EditorPane 切换目标时更新。 */
+export const assetContext = { root: "", baseDir: "posts" };
+
+function normalizeRel(path: string): string {
+  const out: string[] = [];
+  for (const seg of path.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (out.length > 0 && out[out.length - 1] !== "..") out.pop();
+      else out.push("..");
+    } else out.push(seg);
+  }
+  return out.join("/");
+}
+
+/** 相对引用 → asset URL；外链/data/锚点原样；根未就绪（测试环境）退化为原样。 */
+export function resolveAssetSrc(src: string): string {
+  if (!src) return src;
+  if (/^(https?:|data:|mailto:|#)/i.test(src)) return src;
+  if (!assetContext.root) return src;
+  const rel = normalizeRel(`${assetContext.baseDir}/${src}`);
+  if (rel.startsWith("..")) return src; // 越出工作区根，交给浏览器原样处理
+  const abs = `${assetContext.root}/${rel}`.replace(/\/+/, "/");
+  try {
+    return convertFileSrc(abs);
+  } catch {
+    // 非 Tauri 运行时（jsdom 测试/浏览器开发预览）：file:// 形式，仅保持可测
+    return `file:///${abs.replace(/^\/+/, "")}`;
+  }
+}
 
 // ═══════ 自写 remark 插件：==高亮== / ~下标~ / ^上标^（事实标准扩展语法） ═══════
 
@@ -161,6 +197,9 @@ function extractText(node: React.ReactNode): string {
 
 export const previewComponents = {
   pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  img: ({ src, alt, title }: { src?: string; alt?: string; title?: string }) => (
+    <img src={src ? resolveAssetSrc(src) : src} alt={alt ?? ""} title={title} loading="lazy" />
+  ),
   code: (props: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => {
     const { className, children } = props;
     // 行内代码（无 language- 前缀）直接渲染

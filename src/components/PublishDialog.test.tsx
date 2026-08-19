@@ -39,7 +39,7 @@ describe("PublishDialog", () => {
   test("渲染已有版本列表与已发布 chip；点击打开版本", async () => {
     apiMocks.listPublishVersions.mockResolvedValue([version("wechat", true), version("blog")]);
     apiMocks.readPublishVersion.mockResolvedValue({
-      id: "id-wechat", base: "p1", target: "wechat", title: "T", body: "内容", publishedUrl: "https://x", publishedAt: null,
+      id: "id-wechat", base: "p1", target: "wechat", title: "T", body: "内容", publishedUrl: "https://x", publishedAt: null, path: ".versions/p1/publish/wechat.md",
     });
     render(<PublishDialog open baseId="p1" onClose={vi.fn()} />);
     expect(await screen.findByTestId("version-list")).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("PublishDialog", () => {
   test("新建版本：输入目标名 → createPublishVersion 并切换版本态；新名入注册表", async () => {
     apiMocks.listPublishVersions.mockResolvedValue([]);
     apiMocks.createPublishVersion.mockResolvedValue({
-      id: "v-new", base: "p1", target: "weibo", title: "T", body: "", publishedUrl: null, publishedAt: null,
+      id: "v-new", base: "p1", target: "weibo", title: "T", body: "", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/weibo.md",
     });
     render(<PublishDialog open baseId="p1" onClose={vi.fn()} />);
     await screen.findByTestId("publish-dialog");
@@ -83,7 +83,7 @@ describe("PublishDialog", () => {
       { fileName: "20260818-090503-8d1f0a1c.md", ts: "2026-08-18T09:05:03", tsUtc: "", hash8: "8d1f0a1c", milestone: null },
     ]);
     apiMocks.createPublishVersion.mockResolvedValue({
-      id: "v", base: "p1", target: "blog", title: "T", body: "", publishedUrl: null, publishedAt: null,
+      id: "v", base: "p1", target: "blog", title: "T", body: "", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/blog.md",
     });
     render(<PublishDialog open baseId="p1" onClose={vi.fn()} />);
     await screen.findByTestId("publish-dialog");
@@ -92,6 +92,24 @@ describe("PublishDialog", () => {
     fireEvent.click(screen.getByTestId("create-version-btn"));
     await waitFor(() =>
       expect(apiMocks.createPublishVersion).toHaveBeenCalledWith("p1", "blog", "20260818-090503-8d1f0a1c.md"),
+    );
+  });
+
+  test("创建前先强制保存母版（flush 先于 createPublishVersion）", async () => {
+    apiMocks.listPublishVersions.mockResolvedValue([]);
+    apiMocks.createPublishVersion.mockResolvedValue({
+      id: "v", base: "p1", target: "weibo", title: "T", body: "x", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/weibo.md",
+    });
+    const flush = vi.fn().mockResolvedValue(undefined);
+    useApp.setState({ flushFn: flush, selectedId: "p1" });
+    render(<PublishDialog open baseId="p1" onClose={vi.fn()} />);
+    await screen.findByTestId("publish-dialog");
+    await userEvent.type(screen.getByTestId("new-target-name"), "weibo");
+    fireEvent.click(screen.getByTestId("create-version-btn"));
+    await waitFor(() => expect(apiMocks.createPublishVersion).toHaveBeenCalled());
+    expect(flush).toHaveBeenCalled();
+    expect(flush.mock.invocationCallOrder[0]).toBeLessThan(
+      apiMocks.createPublishVersion.mock.invocationCallOrder[0],
     );
   });
 });

@@ -169,6 +169,16 @@ pub fn list_publish_versions(
 }
 
 #[tauri::command]
+pub fn list_all_versions(state: tauri::State<'_, AppState>) -> AppResult<Vec<VersionSummary>> {
+    state.list_all_versions()
+}
+
+#[tauri::command]
+pub fn workspace_root(state: tauri::State<'_, AppState>) -> String {
+    state.workspace_root()
+}
+
+#[tauri::command]
 pub fn create_publish_version(
     state: tauri::State<'_, AppState>,
     base_id: String,

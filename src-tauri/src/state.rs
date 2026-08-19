@@ -76,6 +76,8 @@ pub struct PostContent {
     pub status: String,
     pub tags: Vec<String>,
     pub body: String,
+    /// 工作区相对路径（前端解析贴图等相对引用用）
+    pub path: String,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -96,6 +98,8 @@ pub struct VersionContent {
     pub body: String,
     pub published_url: Option<String>,
     pub published_at: Option<String>,
+    /// 工作区相对路径（前端解析贴图等相对引用用）
+    pub path: String,
 }
 
 /// 命令层核心：所有业务方法都在这（Tauri command 只做薄封装，可独立测试）。
@@ -232,7 +236,7 @@ impl AppState {
     }
 
     pub fn read_post(&self, id: &str) -> AppResult<PostContent> {
-        let (_, abs) = self.meta_path(id)?;
+        let (meta, abs) = self.meta_path(id)?;
         let content = std::fs::read_to_string(&abs)?;
         let (fm, body) = frontmatter::parse(&content)?;
         Ok(PostContent {
@@ -242,6 +246,7 @@ impl AppState {
             status: fm.status.to_string(),
             tags: fm.tags,
             body,
+            path: meta.path,
         })
     }
 
@@ -487,6 +492,7 @@ impl AppState {
 
     fn version_content(&self, base_id: &str, target: &str) -> AppResult<VersionContent> {
         let (fm, body) = publish::read_version_body(&self.ws, base_id, target)?;
+        let path = publish::relative(&self.ws, &publish::version_path(&self.ws, base_id, target));
         Ok(VersionContent {
             id: fm.id.to_string(),
             base: fm.base,
@@ -495,6 +501,7 @@ impl AppState {
             body,
             published_url: fm.published_url,
             published_at: fm.published_at,
+            path,
         })
     }
 
@@ -503,6 +510,16 @@ impl AppState {
             .into_iter()
             .filter(|v| v.base == base_id)
             .collect())
+    }
+
+    /// 全量版本清单（侧栏徽标计数用）。
+    pub fn list_all_versions(&self) -> AppResult<Vec<publish::VersionSummary>> {
+        Ok(publish::list_versions(&self.ws))
+    }
+
+    /// 工作区根目录绝对路径（前端把相对资源映射为 asset 协议 URL 用）。
+    pub fn workspace_root(&self) -> String {
+        self.ws.root.to_string_lossy().replace('\\', "/")
     }
 
     pub fn create_publish_version(

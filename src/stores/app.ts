@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api, PostContent, PostSummary, TreeNode, TrashItem, VersionContent } from "../lib/api";
+import { assetContext } from "../lib/markdown";
 
 export type ViewMode = "edit" | "live" | "preview";
 export type RightTab = "outline" | "history";
@@ -16,6 +17,8 @@ interface AppStore {
   selectedId: string | null;
   selected: PostContent | null;
   version: VersionContent | null;
+  /** 各文稿的发布版本数（侧栏 📣 徽标） */
+  versionCounts: Record<string, number>;
   saveState: SaveState;
   savedAt: string | null;
   viewMode: ViewMode;
@@ -49,6 +52,7 @@ export const useApp = create<AppStore>((set, get) => ({
   selectedId: null,
   selected: null,
   version: null,
+  versionCounts: {},
   saveState: "saved",
   savedAt: null,
   viewMode: "edit",
@@ -59,7 +63,14 @@ export const useApp = create<AppStore>((set, get) => ({
   load: async () => {
     const payload = await api.listPosts();
     const trash = await api.listTrash();
-    set({ tree: payload.tree, posts: payload.posts, trash, loading: false });
+    const versions = await api.listAllVersions().catch(() => []);
+    const versionCounts: Record<string, number> = {};
+    for (const v of versions) versionCounts[v.base] = (versionCounts[v.base] ?? 0) + 1;
+    // 工作区根（贴图等相对资源 → asset 协议 URL 的解析基准）只取一次
+    if (!assetContext.root) {
+      assetContext.root = await api.workspaceRoot().catch(() => "");
+    }
+    set({ tree: payload.tree, posts: payload.posts, trash, versionCounts, loading: false });
   },
 
   select: async (id) => {

@@ -18,7 +18,7 @@ describe("app store（发布版本视图态）", () => {
       loading: false,
       view: { kind: "post" },
       selectedId: "p1",
-      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "b" },
+      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "b", path: "posts/p1.md" },
       version: null,
       flushFn: null,
       saveState: "saved",
@@ -29,7 +29,7 @@ describe("app store（发布版本视图态）", () => {
     const flush = vi.fn().mockResolvedValue(undefined);
     useApp.setState({ flushFn: flush });
     apiMocks.readPublishVersion.mockResolvedValue({
-      id: "v1", base: "p1", target: "wechat", title: "T", body: "版本正文", publishedUrl: null, publishedAt: null,
+      id: "v1", base: "p1", target: "wechat", title: "T", body: "版本正文", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/wechat.md",
     });
     await useApp.getState().selectVersion("p1", "wechat");
     expect(flush).toHaveBeenCalled();
@@ -41,7 +41,7 @@ describe("app store（发布版本视图态）", () => {
   });
 
   test("backToPost 回到母版文稿", async () => {
-    apiMocks.readPost.mockResolvedValue({ id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "母版" });
+    apiMocks.readPost.mockResolvedValue({ id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "母版", path: "posts/p1.md" });
     useApp.setState({ view: { kind: "version", baseId: "p1", target: "wechat" } });
     await useApp.getState().backToPost();
     const s = useApp.getState();

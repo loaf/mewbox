@@ -6,6 +6,8 @@ const listPostsMock = vi.fn();
 const createPostMock = vi.fn();
 const listTrashMock = vi.fn();
 const readPostMock = vi.fn();
+const listAllVersionsMock = vi.fn();
+const workspaceRootMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   api: {
@@ -13,6 +15,8 @@ vi.mock("../lib/api", () => ({
     createPost: (...a: unknown[]) => createPostMock(...a),
     listTrash: (...a: unknown[]) => listTrashMock(...a),
     readPost: (...a: unknown[]) => readPostMock(...a),
+    listAllVersions: (...a: unknown[]) => listAllVersionsMock(...a),
+    workspaceRoot: (...a: unknown[]) => workspaceRootMock(...a),
   },
 }));
 
@@ -25,6 +29,8 @@ describe("AppShell", () => {
     vi.clearAllMocks();
     listPostsMock.mockResolvedValue(emptyPayload);
     listTrashMock.mockResolvedValue([]);
+    listAllVersionsMock.mockResolvedValue([]);
+    workspaceRootMock.mockResolvedValue("X:/ws");
     useApp.setState({
       loading: true,
       tree: [],
@@ -48,7 +54,7 @@ describe("AppShell", () => {
 
   test("无选中时主区显示空状态，点新建→输入标题→创建并选中", async () => {
     createPostMock.mockResolvedValue({ id: "p1", title: "第一篇", folder: null, status: "draft", tags: [], path: "posts/a.md", updatedAt: "t" });
-    readPostMock.mockResolvedValue({ id: "p1", title: "第一篇", folder: null, status: "draft", tags: [], body: "" });
+    readPostMock.mockResolvedValue({ id: "p1", title: "第一篇", folder: null, status: "draft", tags: [], body: "", path: "posts/a.md" });
     listPostsMock.mockResolvedValue({
       tree: [{ name: "未分类", children: {}, posts: [{ id: "p1", title: "第一篇", folder: null }] }],
       posts: [{ id: "p1", title: "第一篇", folder: null, status: "draft", tags: [], path: "posts/a.md", updatedAt: "t" }],

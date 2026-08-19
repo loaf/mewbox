@@ -36,6 +36,7 @@ export interface PostContent {
   status: string;
   tags: string[];
   body: string;
+  path: string;
 }
 
 export interface SaveResult {
@@ -93,6 +94,7 @@ export interface VersionContent {
   body: string;
   publishedUrl: string | null;
   publishedAt: string | null;
+  path: string;
 }
 
 export interface PublishTarget {
@@ -137,6 +139,8 @@ export const api = {
   // ───── 发布版本（M2） ─────
   listPublishVersions: (baseId: string): Promise<PublishVersionSummary[]> =>
     invoke("list_publish_versions", { baseId }),
+  listAllVersions: (): Promise<PublishVersionSummary[]> => invoke("list_all_versions"),
+  workspaceRoot: (): Promise<string> => invoke("workspace_root"),
   createPublishVersion: (
     baseId: string,
     target: string,

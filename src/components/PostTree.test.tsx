@@ -53,6 +53,7 @@ describe("PostTree", () => {
     vi.clearAllMocks();
     apiMocks.listPosts.mockResolvedValue({ tree: [], posts: [] });
     apiMocks.listTrash.mockResolvedValue([]);
+    useApp.setState({ versionCounts: {}, view: { kind: "post" } });
   });
 
   test("渲染聚合树：目录 > 子目录 > 文稿，未分类固定最后", async () => {
@@ -112,5 +113,20 @@ describe("PostTree", () => {
     await waitFor(() =>
       expect(apiMocks.renameVirtualFolder).toHaveBeenCalledWith("技术", "工程"),
     );
+  });
+
+  test("版本数徽标渲染；版本态高亮母版（版本不进列表，DESIGN 决策 8）", async () => {
+    await mount([P3]);
+    // 无版本时无徽标
+    expect(screen.queryByTestId("version-badge")).not.toBeInTheDocument();
+    // 有版本 → 📣n
+    useApp.setState({ versionCounts: { p3: 2 } });
+    await waitFor(() => expect(screen.getByTestId("version-badge").textContent).toContain("2"));
+    // 版本态：母版高亮
+    useApp.setState({ view: { kind: "version", baseId: "p3", target: "wechat" }, selectedId: null });
+    await waitFor(() => {
+      const item = screen.getByText("随想").closest('[data-testid="post-item"]')!;
+      expect(item.className).toContain("bg-[var(--cat-bg)]");
+    });
   });
 });

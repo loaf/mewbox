@@ -131,6 +131,8 @@ pub fn run() {
             commands::scan_refresh,
             commands::import_external,
             commands::list_publish_versions,
+            commands::list_all_versions,
+            commands::workspace_root,
             commands::create_publish_version,
             commands::read_publish_version,
             commands::save_publish_version,

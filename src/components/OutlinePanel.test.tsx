@@ -7,7 +7,7 @@ import { useApp } from "../stores/app";
 describe("OutlinePanel", () => {
   test("渲染层级缩进列表；空正文显示空状态", () => {
     useApp.setState({
-      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "# 甲\n\n## 乙\n\n### 丙" },
+      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "# 甲\n\n## 乙\n\n### 丙", path: "posts/p1.md" },
       viewMode: "edit",
     });
     render(<OutlinePanel />);
@@ -17,7 +17,7 @@ describe("OutlinePanel", () => {
 
     act(() => {
       useApp.setState({
-        selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "无标题正文" },
+        selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "无标题正文", path: "posts/p1.md" },
       });
     });
     expect(screen.getByText(/暂无标题结构/)).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("OutlinePanel", () => {
     el.scrollIntoView = vi.fn();
     document.body.appendChild(el);
     useApp.setState({
-      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "## 乙" },
+      selected: { id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "## 乙", path: "posts/p1.md" },
       viewMode: "preview",
     });
     render(<OutlinePanel />);

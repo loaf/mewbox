@@ -63,6 +63,8 @@ function readPayload(e: { dataTransfer: DtLike }): DragPayload | null {
 export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   const posts = useApp((s) => s.posts);
   const selectedId = useApp((s) => s.selectedId);
+  const view = useApp((s) => s.view);
+  const versionCounts = useApp((s) => s.versionCounts);
   const select = useApp((s) => s.select);
   const load = useApp((s) => s.load);
 
@@ -141,12 +143,17 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
             {node.posts.map((ref) => {
               const p = postById(ref.id);
               if (!p) return null;
+              // 版本态：左栏高亮母版（版本本身不进列表，DESIGN 决策 8）
+              const isBase = view.kind === "version" && view.baseId === ref.id;
+              const vCount = versionCounts[ref.id] ?? 0;
               return (
                 <div
                   key={ref.id}
                   data-testid="post-item"
                   className={`flex cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 text-[13px] ${
-                    selectedId === ref.id ? "bg-[var(--cat-bg)] font-semibold" : "hover:bg-[var(--cream)]"
+                    selectedId === ref.id || isBase
+                      ? "bg-[var(--cat-bg)] font-semibold"
+                      : "hover:bg-[var(--cream)]"
                   }`}
                   style={{ paddingLeft: 20 + depth * 12 }}
                   draggable
@@ -159,8 +166,17 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                     setMenu({ x: e.clientX, y: e.clientY, kind: "post", target: p });
                   }}
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--cat-lt)]" />
+                  <span className={`h-1.5 w-1.5 rounded-full ${isBase ? "bg-[var(--box)]" : "bg-[var(--cat-lt)]"}`} />
                   <span className="truncate">{p.title}</span>
+                  {vCount > 0 && (
+                    <span
+                      className="rounded-full bg-[var(--cream)] px-1.5 py-px text-[10px] font-semibold text-[var(--box-dk)]"
+                      title={`${vCount} 个发布版本`}
+                      data-testid="version-badge"
+                    >
+                      📣{vCount}
+                    </span>
+                  )}
                   <StatusChip status={p.status} />
                 </div>
               );

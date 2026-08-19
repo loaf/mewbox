@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { render, screen, waitFor } from "@testing-library/react";
 import remarkGfm from "remark-gfm";
-import { MarkdownPreview, editorPreviewOptions, remarkSubSuper } from "./markdown";
+import { MarkdownPreview, editorPreviewOptions, remarkSubSuper, resolveAssetSrc, assetContext } from "./markdown";
 
 vi.mock("mermaid", () => ({
   default: {
@@ -57,6 +57,27 @@ describe("markdown 渲染扩展", () => {
     expect(mermaid.render).toHaveBeenCalledTimes(2);
     const ids = vi.mocked(mermaid.render).mock.calls.map((c) => c[0]);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test("resolveAssetSrc：相对引用映射为 asset URL；外链/锚点/越根原样", () => {
+    const backup = { ...assetContext };
+    assetContext.root = "X:/ws";
+    assetContext.baseDir = ".versions/p1/publish";
+    // 版本里的贴图引用（Tauri 环境 asset.localhost；jsdom 退化 file:///）
+    const url = resolveAssetSrc("../../../_assets/abc.png");
+    expect(url).toMatch(/asset\.localhost|file:\/\/\//);
+    expect(url).toContain("_assets");
+    // 文稿目录
+    assetContext.baseDir = "posts";
+    expect(resolveAssetSrc("../_assets/a.png")).toMatch(/asset\.localhost|file:\/\/\//);
+    // 外链/锚点/data 原样
+    expect(resolveAssetSrc("https://x.com/a.png")).toBe("https://x.com/a.png");
+    expect(resolveAssetSrc("#sec")).toBe("#sec");
+    expect(resolveAssetSrc("data:image/png;base64,xxx")).toBe("data:image/png;base64,xxx");
+    // 根未就绪 → 原样（测试/降级路径）
+    assetContext.root = "";
+    expect(resolveAssetSrc("../_assets/a.png")).toBe("../_assets/a.png");
+    Object.assign(assetContext, backup);
   });
 
   test("pluginsFilter 剔除 @uiw 追加的裸 remark-gfm，保留带配置的元组", () => {

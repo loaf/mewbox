@@ -20,15 +20,17 @@ vi.mock("../lib/api", () => ({ api: apiMocks }));
 import { useApp } from "../stores/app";
 import type { PostContent } from "../lib/api";
 
-const post = (over: Partial<PostContent> = {}): PostContent => ({
-  id: "p1",
-  title: "第一篇",
-  folder: null,
-  status: "draft",
-  tags: [],
-  body: "# 标题\n\n正文",
-  ...over,
-});
+const post = (over: Partial<PostContent> = {}): PostContent =>
+  ({
+    id: "p1",
+    title: "第一篇",
+    folder: null,
+    status: "draft",
+    tags: [],
+    body: "# 标题\n\n正文",
+    path: "posts/p1.md",
+    ...over,
+  }) as PostContent;
 
 async function mount(p: PostContent) {
   apiMocks.listPosts.mockResolvedValue({ tree: [], posts: [] });
@@ -165,6 +167,7 @@ describe("EditorPane", () => {
     body: "版本初始内容",
     publishedUrl: null as string | null,
     publishedAt: null as string | null,
+    path: ".versions/p1/publish/wechat.md",
   };
 
   async function mountVersion() {

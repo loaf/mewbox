@@ -45,6 +45,9 @@ export function PublishDialog({
     setBusy(true);
     setError(null);
     try {
+      // 先强制保存母版（防抖中的未落盘内容不能成为分叉来源）
+      const flush = useApp.getState().flushFn;
+      if (flush) await flush();
       if (saveToRegistry && !targets.some((t) => t.id === name)) {
         await api.addPublishTarget(name, name, "").catch(() => undefined); // 注册表是便利设施，失败不阻塞
       }

@@ -73,7 +73,7 @@ describe("HistoryPanel", () => {
 
   test("恢复需确认弹窗 → restoreSnapshot → 刷新列表（恢复产生新快照，列表 +1）", async () => {
     apiMocks.listSnapshots.mockResolvedValue([SNAP("2026-08-18T10:00:00", "aaaa1111")]);
-    apiMocks.restoreSnapshot.mockResolvedValue({ id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "旧内容" });
+    apiMocks.restoreSnapshot.mockResolvedValue({ id: "p1", title: "T", folder: null, status: "draft", tags: [], body: "旧内容", path: "posts/p1.md" });
     render(<HistoryPanel />);
     await screen.findByTestId("history-list");
     fireEvent.click(screen.getByTestId("restore-btn"));
@@ -114,7 +114,7 @@ describe("HistoryPanel", () => {
     storeState.view = { kind: "version", baseId: "p1", target: "wechat" };
     apiMocks.listVersionSnapshots.mockResolvedValue([SNAP("2026-08-18T10:00:00", "vvvv0001")]);
     apiMocks.readPublishVersion.mockResolvedValue({
-      id: "v1", base: "p1", target: "wechat", title: "T", body: "版本当前", publishedUrl: null, publishedAt: null,
+      id: "v1", base: "p1", target: "wechat", title: "T", body: "版本当前", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/wechat.md",
     });
     apiMocks.restoreVersionSnapshot.mockResolvedValue({});
     render(<HistoryPanel />);

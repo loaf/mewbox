@@ -3,7 +3,7 @@ import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { api } from "../lib/api";
 import { useApp, ViewMode } from "../stores/app";
-import { editorPreviewOptions } from "../lib/markdown";
+import { assetContext, editorPreviewOptions } from "../lib/markdown";
 import { PublishDialog, PublishRecordDialog } from "./PublishDialog";
 import { SyncVersionDialog } from "./SyncVersionDialog";
 
@@ -52,6 +52,17 @@ export function EditorPane() {
   const [recordOpen, setRecordOpen] = useState(false);
 
   latestBody.current = body;
+
+  // 贴图/相对资源的解析基准：当前预览文件所在目录（文稿 or 版本）
+  useEffect(() => {
+    if (view.kind === "version") {
+      assetContext.baseDir = `.versions/${view.baseId}/publish`;
+    } else {
+      assetContext.baseDir = selected?.path
+        ? selected.path.split("/").slice(0, -1).join("/")
+        : "posts";
+    }
+  }, [view, selected?.path]);
 
   // 切换目标（文稿/版本）时重置本地态
   useEffect(() => {
