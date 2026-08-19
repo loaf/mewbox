@@ -179,6 +179,97 @@ export interface PublishTarget {
   note: string;
 }
 
+// ───── AI（M4，DESIGN §8；流事件 ai-stream:{callId}） ─────
+
+/** 后端流事件（ai-stream:{callId} 的 payload） */
+export interface AIStreamEvent {
+  kind: "delta" | "done" | "error";
+  text?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+}
+
+/** 工作台上下文条目：文稿 / 资料 / 发布版本（修订决策 7） */
+export interface ContextEntry {
+  kind: "post" | "material" | "version";
+  id?: string;
+  /** version 专用：母版 id */
+  base?: string;
+  /** version 专用：发布目标 */
+  target?: string;
+}
+
+export interface AiProviderConfig {
+  id: string;
+  /** openai | anthropic | ollama */
+  type: string;
+  baseUrl: string;
+  model: string;
+  maxContext?: number | null;
+  pricePer1kInCents?: number | null;
+  pricePer1kOutCents?: number | null;
+}
+
+export interface AiBudgetConfig {
+  /** 0 = 不限制（美分） */
+  dailyCents: number;
+  monthlyCents: number;
+  paused: boolean;
+}
+
+/** aiListProviders 返回的完整 AI 配置 */
+export interface AiConfigState {
+  providers: AiProviderConfig[];
+  /** op → "provider" 或 "provider:model" */
+  routes: Record<string, string>;
+  /** op → "provider:model,provider:model" 备选链 */
+  fallbacks: Record<string, string>;
+  budget: AiBudgetConfig;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  message: string;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+export interface UsageRow {
+  periodKey: string;
+  op: string;
+  model: string;
+  provider: string;
+  tokensIn: number;
+  tokensOut: number;
+  cents: number;
+  calls: number;
+}
+
+/** 润色建议（aiApplySuggestions 的条目；查错采纳同样映射到此结构） */
+export interface AiSuggestion {
+  original: string;
+  revised: string;
+  reason: string;
+}
+
+export interface ApplySuggestionsResult {
+  body: string;
+  applied: number[];
+  skipped: number[];
+}
+
+/** aiRunOp 的可选输入（与后端 RunParams 对应） */
+export interface AiRunParams {
+  custom?: string;
+  question?: string;
+  /** (user, assistant) 交替，仅当次窗口 */
+  history?: [string, string][];
+  targetLang?: string;
+  tone?: string;
+  selection?: string;
+  includeAttachmentText?: boolean;
+}
+
 export const api = {
   listPosts: (): Promise<PostsPayload> => invoke("list_posts"),
   createPost: (title: string, folder?: string): Promise<PostSummary> =>
@@ -292,4 +383,62 @@ export const api = {
   listKbDirs: (): Promise<string[]> => invoke("list_kb_dirs"),
   createKbDir: (parent: string, name: string): Promise<string> =>
     invoke("create_kb_dir", { parent, name }),
+  // ───── AI（M4，DESIGN §8）─────
+  /** 发起 AI 操作（fire-and-forget：立即返回，结果经 ai-stream:{callId} 流式推送） */
+  aiRunOp: (
+    callId: string,
+    op: string,
+    contexts: ContextEntry[],
+    params?: AiRunParams,
+  ): Promise<void> =>
+    invoke("ai_run_op", {
+      callId,
+      op,
+      contexts,
+      custom: params?.custom ?? null,
+      question: params?.question ?? null,
+      history: params?.history ?? null,
+      targetLang: params?.targetLang ?? null,
+      tone: params?.tone ?? null,
+      selection: params?.selection ?? null,
+      includeAttachmentText: params?.includeAttachmentText ?? null,
+    }),
+  aiCancel: (callId: string): Promise<void> => invoke("ai_cancel", { callId }),
+  aiAdoptResult: (callId: string, note?: string): Promise<void> =>
+    invoke("ai_adopt_result", { callId, note: note ?? null }),
+  aiDiscardResult: (callId: string): Promise<void> =>
+    invoke("ai_discard_result", { callId }),
+  aiSaveAsMaterial: (
+    callId: string,
+    title: string,
+    body: string,
+    sourceIds: string[],
+    assocIds: string[],
+  ): Promise<MaterialSummary> =>
+    invoke("ai_save_as_material", { callId, title, body, sourceIds, assocIds }),
+  aiDescribeAttachment: (callId: string, materialId: string, attachment: string): Promise<void> =>
+    invoke("ai_describe_attachment", { callId, materialId, attachment }),
+  aiApplySuggestions: (body: string, items: AiSuggestion[]): Promise<ApplySuggestionsResult> =>
+    invoke("ai_apply_suggestions", { body, items }),
+  aiTestConnection: (providerId: string): Promise<ConnectionTestResult> =>
+    invoke("ai_test_connection", { providerId }),
+  aiListProviders: (): Promise<AiConfigState> => invoke("ai_list_providers"),
+  aiSaveProvider: (provider: AiProviderConfig): Promise<void> =>
+    invoke("ai_save_provider", { provider }),
+  aiDeleteProvider: (id: string): Promise<void> => invoke("ai_delete_provider", { id }),
+  aiSaveAiConfig: (
+    routes: Record<string, string>,
+    fallbacks: Record<string, string>,
+    budget: AiBudgetConfig,
+  ): Promise<void> => invoke("ai_save_ai_config", { routes, fallbacks, budget }),
+  aiSetKey: (providerId: string, key: string): Promise<void> =>
+    invoke("ai_set_key", { providerId, key }),
+  aiHasKey: (providerId: string): Promise<boolean> => invoke("ai_has_key", { providerId }),
+  aiDeleteKey: (providerId: string): Promise<void> => invoke("ai_delete_key", { providerId }),
+  /** monthScope=true 按月聚合，否则按日 */
+  aiUsage: (monthScope?: boolean): Promise<UsageRow[]> =>
+    invoke("ai_usage", { monthScope: monthScope ?? null }),
+  aiClearCalls: (): Promise<void> => invoke("ai_clear_calls"),
+  aiSearchMaterials: (query: string): Promise<SearchHit[]> =>
+    invoke("ai_search_materials", { query }),
 };

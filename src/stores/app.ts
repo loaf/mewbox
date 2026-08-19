@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   api,
+  ContextEntry,
   MaterialContent,
   MaterialSummary,
   PostContent,
@@ -12,7 +13,7 @@ import {
 import { assetContext } from "../lib/markdown";
 
 export type ViewMode = "edit" | "live" | "preview";
-export type RightTab = "outline" | "backlinks" | "history";
+export type RightTab = "outline" | "backlinks" | "history" | "material-search" | "ai";
 export type SaveState = "saved" | "saving" | "dirty";
 /** 编辑目标：文稿 / 发布版本 / 资料（M3；版本不进侧栏，由入口切换，DESIGN §5.2/§6） */
 export type EditorView =
@@ -22,6 +23,12 @@ export type EditorView =
 
 /** AssocPanel 的多选关联器打开状态（编辑器横幅与关联面板共用） */
 export type AssocPickerKind = "posts" | "materials";
+
+/** AI 工作台上下文（M4；当次会话内保持，切页签不丢） */
+export interface AIContextState {
+  entries: ContextEntry[];
+  includeAttachmentText: boolean;
+}
 
 interface AppStore {
   loading: boolean;
@@ -45,6 +52,10 @@ interface AppStore {
   trashOpen: boolean;
   /** M3：关联多选器（posts/materials） */
   assocPicker: { kind: AssocPickerKind } | null;
+  /** M4：AI 设置弹窗 */
+  settingsOpen: boolean;
+  /** M4：AI 工作台上下文（会话级简单状态） */
+  aiContext: AIContextState;
   /** EditorPane 注册的强制保存钩子（切换文稿前调用，防止丢字） */
   flushFn: (() => Promise<void>) | null;
 
@@ -66,6 +77,8 @@ interface AppStore {
   setTrashOpen(open: boolean): void;
   openAssocPicker(kind: AssocPickerKind): void;
   closeAssocPicker(): void;
+  setSettingsOpen(open: boolean): void;
+  setAIContext(ctx: AIContextState): void;
   reloadPost(): Promise<void>;
 }
 
@@ -88,6 +101,8 @@ export const useApp = create<AppStore>((set, get) => ({
   rightTab: "outline",
   trashOpen: false,
   assocPicker: null,
+  settingsOpen: false,
+  aiContext: { entries: [], includeAttachmentText: false },
   flushFn: null,
 
   load: async () => {
@@ -197,6 +212,8 @@ export const useApp = create<AppStore>((set, get) => ({
   setTrashOpen: (trashOpen) => set({ trashOpen }),
   openAssocPicker: (kind) => set({ assocPicker: { kind } }),
   closeAssocPicker: () => set({ assocPicker: null }),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setAIContext: (aiContext) => set({ aiContext }),
 
   reloadPost: async () => {
     const id = get().selectedId;

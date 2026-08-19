@@ -14,6 +14,10 @@ import { PublishDialog, PublishRecordDialog } from "./PublishDialog";
 import { SyncVersionDialog } from "./SyncVersionDialog";
 import { AssocPanel } from "./AssocPanel";
 import { CandidatesDialog } from "./CandidatesDialog";
+import { SelectionToolbar, useSelectionAnchor } from "./SelectionToolbar";
+import { ProofreadPanel } from "./ProofreadPanel";
+import { CheckErrorsPanel } from "./CheckErrorsPanel";
+import type { ContextEntry } from "../lib/api";
 
 const STATUS_OPTIONS = [
   ["draft", "草稿"],
@@ -67,6 +71,12 @@ export function EditorPane() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [wikiCandidates, setWikiCandidates] = useState<WikiHit[]>([]);
   const [wikiDangling, setWikiDangling] = useState<string | null>(null);
+
+  // M4：选区工具条（锚定鼠标抬起点）+ 全文润色/查错面板
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const selAnchor = useSelectionAnchor();
+  const [proofOpen, setProofOpen] = useState(false);
+  const [errorsOpen, setErrorsOpen] = useState(false);
 
   latestBody.current = body;
 
@@ -241,6 +251,43 @@ export function EditorPane() {
     else setWikiDangling(title);
   };
 
+  // ───── M4：AI 结果插入 / 选区替换 / 全文面板 ─────
+
+  // 「插入当前文稿光标处」（AI 工作台 / 选区工具条 / 资料检索 都走这个事件）
+  useEffect(() => {
+    const onInsert = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (!text) return;
+      const ta = wrapRef.current?.querySelector("textarea");
+      if (!ta) return;
+      setBody(insertAtCursor(ta as HTMLTextAreaElement, text));
+    };
+    window.addEventListener("mewbox:insert", onInsert);
+    return () => window.removeEventListener("mewbox:insert", onInsert);
+  }, []);
+
+  // 替换选区（SelectionToolbar 传入触发时的 range）
+  const onReplaceRange = useCallback((start: number, end: number, text: string) => {
+    const cur = latestBody.current;
+    setBody(cur.slice(0, start) + text + cur.slice(end));
+  }, []);
+
+  // 全文润色/查错对象（post/material；版本不走这两个入口）
+  const aiTarget: ContextEntry | null =
+    view.kind === "post" && selected ? { kind: "post", id: selected.id } : view.kind === "material" ? { kind: "material", id: view.id } : null;
+
+  // 打开全文面板前强制落盘（后端按文件读全文）
+  const openProofread = async () => {
+    await useApp.getState().flushFn?.();
+    setErrorsOpen(false);
+    setProofOpen(true);
+  };
+  const openCheckErrors = async () => {
+    await useApp.getState().flushFn?.();
+    setProofOpen(false);
+    setErrorsOpen(true);
+  };
+
   // 自定义预览：预处理 wiki 链接后走共享渲染管线（textarea 保持原文）
   const renderPreview = useCallback(
     (md: string) => (
@@ -352,6 +399,24 @@ export function EditorPane() {
         <span className="text-[11px] text-[var(--muted)]" data-testid="save-indicator">
           {saveLabel}
         </span>
+        {!isVersion && (
+          <div className="flex gap-1">
+            <button
+              onClick={() => void openProofread()}
+              className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+              data-testid="btn-proofread"
+            >
+              润色建议
+            </button>
+            <button
+              onClick={() => void openCheckErrors()}
+              className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+              data-testid="btn-check-errors"
+            >
+              查错
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 模式切换（prototype subbar 样式） */}
@@ -386,7 +451,7 @@ export function EditorPane() {
       </div>
 
       {/* 编辑器（预览管线预处理 wiki 链接；textarea 保持原文） */}
-      <div className="min-h-0 flex-1" data-color-mode="light" onClick={(e) => void onPreviewClick(e)}>
+      <div ref={wrapRef} className="min-h-0 flex-1" data-color-mode="light" onClick={(e) => void onPreviewClick(e)}>
         <MDEditor
           value={body}
           onChange={(v) => setBody(v ?? "")}
@@ -396,6 +461,9 @@ export function EditorPane() {
           textareaProps={
             {
               onPaste: onPaste,
+              onSelect: selAnchor.handlers.onSelect,
+              onMouseUp: selAnchor.handlers.onMouseUp,
+              onKeyUp: selAnchor.handlers.onKeyUp,
               "data-testid": "md-textarea",
             } as unknown as NonNullable<
               Parameters<typeof MDEditor>[0]["textareaProps"]
@@ -408,6 +476,33 @@ export function EditorPane() {
 
       {/* 关联块（文稿/资料侧；版本无块） */}
       <AssocPanel />
+
+      {/* M4：选区工具条（edit/live 模式且有选区时浮起） */}
+      <SelectionToolbar
+        anchor={selAnchor.anchor}
+        clear={() => selAnchor.setAnchor(null)}
+        lock={selAnchor.lock}
+        onReplaceRange={onReplaceRange}
+        enabled={viewMode === "edit" || viewMode === "live"}
+      />
+
+      {/* M4：全文润色建议 / 查错（post/material；版本不走） */}
+      {proofOpen && aiTarget && (
+        <ProofreadPanel
+          target={aiTarget}
+          body={body}
+          onApply={(nb) => setBody(nb)}
+          onClose={() => setProofOpen(false)}
+        />
+      )}
+      {errorsOpen && aiTarget && (
+        <CheckErrorsPanel
+          target={aiTarget}
+          body={body}
+          onApply={(nb) => setBody(nb)}
+          onClose={() => setErrorsOpen(false)}
+        />
+      )}
 
       {view.kind === "post" && selectedId && (
         <PublishDialog open={publishOpen} baseId={selectedId} onClose={() => setPublishOpen(false)} />

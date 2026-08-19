@@ -9,11 +9,15 @@ import { BacklinksPanel } from "./BacklinksPanel";
 import { TrashPanel } from "./TrashPanel";
 import { KbTree } from "./KbTree";
 import { HealthPanel } from "./HealthPanel";
+import { MaterialSearchPanel } from "./MaterialSearchPanel";
+import { AIWorkbench } from "./AIWorkbench";
+import { SettingsPanel } from "./SettingsPanel";
 
 /** 左栏：文稿区 / 知识库区（M3）/ 搜索占位 / 回收站与健康检查入口 */
 function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const posts = useApp((s) => s.posts);
   const setTrashOpen = useApp((s) => s.setTrashOpen);
+  const setSettingsOpen = useApp((s) => s.setSettingsOpen);
   const trashCount = useApp((s) => s.trash.length);
   const [healthOpen, setHealthOpen] = useState(false);
 
@@ -34,6 +38,13 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
       </section>
 
       <div className="mt-auto border-t border-dashed border-[var(--line)]">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="w-full px-4 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"
+          data-testid="settings-entry"
+        >
+          ⚙ 设置
+        </button>
         <button
           onClick={() => setHealthOpen(true)}
           className="w-full px-4 py-2 text-left text-xs text-[var(--muted)] hover:text-[var(--ink)]"
@@ -81,6 +92,8 @@ const RIGHT_TABS = [
   ["outline", "大纲"],
   ["backlinks", "反链"],
   ["history", "历史"],
+  ["material-search", "资料检索"],
+  ["ai", "AI"],
 ] as const;
 
 export function AppShell() {
@@ -93,6 +106,8 @@ export function AppShell() {
   const material = useApp((s) => s.material);
   const rightTab = useApp((s) => s.rightTab);
   const setRightTab = useApp((s) => s.setRightTab);
+  const settingsOpen = useApp((s) => s.settingsOpen);
+  const setSettingsOpen = useApp((s) => s.setSettingsOpen);
 
   const [creating, setCreating] = useState(false);
   const posts = useApp((s) => s.posts);
@@ -104,6 +119,19 @@ export function AppShell() {
   useEffect(() => {
     load().catch(console.error);
   }, [load]);
+
+  // Ctrl/Cmd+K → 资料检索页签并聚焦输入框（T13）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setRightTab("material-search");
+        window.dispatchEvent(new Event("mewbox:focus-material-search"));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setRightTab]);
 
   const onCreate = () => setCreating(true);
   const onCreateConfirm = async (title: string, folder?: string) => {
@@ -143,11 +171,23 @@ export function AppShell() {
           ))}
         </div>
         <div className="flex min-h-0 flex-1 flex-col" data-testid={`panel-${rightTab}`}>
-          {rightTab === "outline" ? <OutlinePanel /> : rightTab === "backlinks" ? <BacklinksPanel /> : <HistoryPanel />}
+          {rightTab === "outline" ? (
+            <OutlinePanel />
+          ) : rightTab === "backlinks" ? (
+            <BacklinksPanel />
+          ) : rightTab === "history" ? (
+            <HistoryPanel />
+          ) : rightTab === "material-search" ? (
+            <MaterialSearchPanel />
+          ) : (
+            <AIWorkbench />
+          )}
         </div>
       </aside>
 
       <TrashPanel />
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <NewPostDialog
         open={creating}

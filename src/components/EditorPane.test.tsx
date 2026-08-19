@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EditorPane } from "./EditorPane";
 
@@ -25,12 +25,53 @@ const apiMocks = vi.hoisted(() => ({
   listMaterialTrash: vi.fn().mockResolvedValue([]),
   listAllVersions: vi.fn().mockResolvedValue([]),
   workspaceRoot: vi.fn().mockResolvedValue("X:/ws"),
+  // M4（AI）
+  aiRunOp: vi.fn().mockResolvedValue(undefined),
+  aiCancel: vi.fn().mockResolvedValue(undefined),
+  aiAdoptResult: vi.fn().mockResolvedValue(undefined),
+  aiDiscardResult: vi.fn().mockResolvedValue(undefined),
+  aiApplySuggestions: vi.fn(),
+  aiSaveAsMaterial: vi.fn(),
+  aiDescribeAttachment: vi.fn().mockResolvedValue(undefined),
+  aiListProviders: vi.fn().mockResolvedValue({ providers: [], routes: {}, fallbacks: {}, budget: { dailyCents: 0, monthlyCents: 0, paused: false } }),
+  aiTestConnection: vi.fn(),
+  aiSaveProvider: vi.fn().mockResolvedValue(undefined),
+  aiDeleteProvider: vi.fn().mockResolvedValue(undefined),
+  aiSaveAiConfig: vi.fn().mockResolvedValue(undefined),
+  aiSetKey: vi.fn().mockResolvedValue(undefined),
+  aiHasKey: vi.fn().mockResolvedValue(false),
+  aiDeleteKey: vi.fn().mockResolvedValue(undefined),
+  aiUsage: vi.fn().mockResolvedValue([]),
+  aiClearCalls: vi.fn().mockResolvedValue(undefined),
+  aiSearchMaterials: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../lib/api", () => ({ api: apiMocks }));
 
+// M4：AI 流事件 mock（捕获 handler 供测试模拟流）
+const eventState = vi.hoisted(() => ({
+  handlers: new Map<string, (e: { payload: unknown }) => void>(),
+  order: [] as string[],
+  lastEvent: null as string | null,
+}));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (event: string, handler: (e: { payload: unknown }) => void) => {
+    eventState.handlers.set(event, handler);
+    eventState.order.push(event);
+    eventState.lastEvent = event;
+    return () => eventState.handlers.delete(event);
+  }),
+}));
+
 import { useApp } from "../stores/app";
 import type { PostContent } from "../lib/api";
+
+/** 模拟后端向最近的 ai-stream:{callId} 监听者推送事件 */
+function emitAI(payload: unknown) {
+  const ev = eventState.lastEvent;
+  if (!ev) throw new Error("没有已注册的流监听");
+  eventState.handlers.get(ev)!({ payload });
+}
 
 const post = (over: Partial<PostContent> = {}): PostContent =>
   ({
@@ -398,5 +439,123 @@ describe("EditorPane", () => {
     await waitFor(() => expect(apiMocks.convertMaterialToPost).toHaveBeenCalledWith("m1"));
     await waitFor(() => expect(useApp.getState().view).toEqual({ kind: "post" }));
     await waitFor(() => expect(useApp.getState().selectedId).toBe("p9"));
+  });
+
+  // ───── M4：AI 写作辅助（T11/T12） ─────
+
+  test("post 模式显示 润色建议/查错 按钮；版本模式不显示", async () => {
+    await mount(post());
+    expect(screen.getByTestId("btn-proofread")).toBeInTheDocument();
+    expect(screen.getByTestId("btn-check-errors")).toBeInTheDocument();
+    cleanup();
+    await mountVersion();
+    expect(screen.queryByTestId("btn-proofread")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("btn-check-errors")).not.toBeInTheDocument();
+  });
+
+  test("mewbox:insert 事件 → 文本插入光标处（AI 结果/资料链接共用通道）", async () => {
+    await mount(post({ body: "开头" }));
+    const ta = screen.getByTestId("md-textarea") as HTMLTextAreaElement;
+    ta.setSelectionRange(2, 2);
+    window.dispatchEvent(new CustomEvent("mewbox:insert", { detail: { text: "插入的" } }));
+    await waitFor(() => expect(ta.value).toBe("开头插入的"));
+  });
+
+  test("选区后浮条出现（edit/live 模式）；预览模式不出现", async () => {
+    await mount(post({ body: "一段旧文字后面" }));
+    const ta = screen.getByTestId("md-textarea") as HTMLTextAreaElement;
+    ta.setSelectionRange(0, 4);
+    fireEvent.mouseUp(ta, { clientX: 120, clientY: 160 });
+    expect(screen.getByTestId("selection-toolbar")).toBeInTheDocument();
+    // 预览模式隐藏
+    fireEvent.click(screen.getByTestId("mode-preview"));
+    expect(screen.queryByTestId("selection-toolbar")).not.toBeInTheDocument();
+  });
+
+  test("选区工具条：改写 → aiRunOp(selection) → 流式预览 → 替换选区精确拼接 + aiAdoptResult", async () => {
+    await mount(post({ body: "一段旧文字后面" }));
+    const ta = screen.getByTestId("md-textarea") as HTMLTextAreaElement;
+    ta.setSelectionRange(0, 4);
+    fireEvent.mouseUp(ta, { clientX: 120, clientY: 160 });
+    fireEvent.click(screen.getByTestId("sel-btn-rewrite"));
+    await waitFor(() => expect(apiMocks.aiRunOp).toHaveBeenCalledTimes(1));
+    const [callId, op, contexts, params] = apiMocks.aiRunOp.mock.calls[0];
+    expect(callId).toEqual(expect.any(String));
+    expect(op).toBe("rewrite");
+    expect(contexts).toEqual([]);
+    expect(params.selection).toBe("一段旧文");
+    await act(async () => {
+      emitAI({ kind: "delta", text: "新的四" });
+      emitAI({ kind: "done", tokensIn: 8, tokensOut: 9 });
+    });
+    await waitFor(() => expect(screen.getByTestId("sel-result")).toBeInTheDocument());
+    expect(screen.getByTestId("sel-result-text").textContent).toBe("新的四");
+    fireEvent.click(screen.getByTestId("sel-replace"));
+    await waitFor(() => expect(apiMocks.aiAdoptResult).toHaveBeenCalledWith(callId));
+    await waitFor(() => expect(ta.value).toBe("新的四字后面"));
+    // 浮条与结果卡均收起
+    expect(screen.queryByTestId("sel-result")).not.toBeInTheDocument();
+  });
+
+  test("选区工具条：放弃 → aiDiscardResult 且正文不变", async () => {
+    await mount(post({ body: "保持原样" }));
+    const ta = screen.getByTestId("md-textarea") as HTMLTextAreaElement;
+    ta.setSelectionRange(0, 4);
+    fireEvent.mouseUp(ta, { clientX: 120, clientY: 160 });
+    fireEvent.click(screen.getByTestId("sel-btn-polish"));
+    await waitFor(() => expect(apiMocks.aiRunOp).toHaveBeenCalled());
+    await act(async () => {
+      emitAI({ kind: "delta", text: "改后" });
+      emitAI({ kind: "done", tokensIn: 1, tokensOut: 1 });
+    });
+    fireEvent.click(screen.getByTestId("sel-discard"));
+    await waitFor(() => expect(apiMocks.aiDiscardResult).toHaveBeenCalled());
+    expect(ta.value).toBe("保持原样");
+    expect(screen.queryByTestId("sel-result")).not.toBeInTheDocument();
+  });
+
+  test("润色建议：全文 op → 解析建议 → 逐条采纳 = aiApplySuggestions 精确替换", async () => {
+    await mount(post({ body: "旧句子在文中" }));
+    fireEvent.click(screen.getByTestId("btn-proofread"));
+    await waitFor(() =>
+      expect(apiMocks.aiRunOp).toHaveBeenCalledWith(expect.any(String), "proofread_suggestions", [{ kind: "post", id: "p1" }]),
+    );
+    await act(async () => {
+      emitAI({ kind: "delta", text: '```json\n[{"原段":"旧句子","改段":"新句子","理由":"更顺"},]' });
+      emitAI({ kind: "done", tokensIn: 10, tokensOut: 20 });
+    });
+    await waitFor(() => expect(screen.getByTestId("proofread-item")).toBeInTheDocument());
+    apiMocks.aiApplySuggestions.mockResolvedValue({ body: "新句子在文中", applied: [0], skipped: [] });
+    fireEvent.click(screen.getByTestId("proofread-adopt-0"));
+    await waitFor(() => expect(apiMocks.aiApplySuggestions).toHaveBeenCalledWith("旧句子在文中", [
+      { original: "旧句子", revised: "新句子", reason: "更顺" },
+    ]));
+    await waitFor(() => expect((screen.getByTestId("md-textarea") as HTMLTextAreaElement).value).toBe("新句子在文中"));
+    await waitFor(() => expect(apiMocks.aiAdoptResult).toHaveBeenCalledWith(expect.any(String), "采纳 1/1 条"));
+  });
+
+  test("查错：解析条目 → 全部采纳；定位点击滚动不报错", async () => {
+    await mount(post({ body: "第一行\n从新开始" }));
+    fireEvent.click(screen.getByTestId("btn-check-errors"));
+    await waitFor(() =>
+      expect(apiMocks.aiRunOp).toHaveBeenCalledWith(expect.any(String), "check_errors", [{ kind: "post", id: "p1" }]),
+    );
+    await act(async () => {
+      emitAI({ kind: "delta", text: '[{"类型":"错别字","定位":"从新开始","建议":"重新开始"}]' });
+      emitAI({ kind: "done", tokensIn: 6, tokensOut: 6 });
+    });
+    const item = await waitFor(() => {
+      const el = screen.getByTestId("issue-item");
+      expect(el).toBeInTheDocument();
+      return el;
+    });
+    expect(item.textContent).toContain("错别字");
+    fireEvent.click(screen.getByTestId("issue-locate-0")); // 定位滚动（近似行号）
+    apiMocks.aiApplySuggestions.mockResolvedValue({ body: "第一行\n重新开始", applied: [0], skipped: [] });
+    fireEvent.click(screen.getByTestId("issue-adopt-all"));
+    await waitFor(() => expect(apiMocks.aiApplySuggestions).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((screen.getByTestId("md-textarea") as HTMLTextAreaElement).value).toBe("第一行\n重新开始"),
+    );
   });
 });

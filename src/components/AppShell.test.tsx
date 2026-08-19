@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppShell } from "./AppShell";
 
@@ -11,6 +11,23 @@ const workspaceRootMock = vi.fn();
 const listMaterialsMock = vi.fn();
 const listMaterialTrashMock = vi.fn();
 const assocTargetsMock = vi.fn();
+const listKbDirsMock = vi.fn();
+
+// M4：AI 流事件 mock（useAIStream 依赖）
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async () => () => undefined),
+}));
+
+const aiMocks = vi.hoisted(() => ({
+  aiListProviders: vi.fn().mockResolvedValue({ providers: [], routes: {}, fallbacks: {}, budget: { dailyCents: 0, monthlyCents: 0, paused: false } }),
+  aiHasKey: vi.fn().mockResolvedValue(false),
+  aiUsage: vi.fn().mockResolvedValue([]),
+  aiCancel: vi.fn().mockResolvedValue(undefined),
+  aiAdoptResult: vi.fn().mockResolvedValue(undefined),
+  aiDiscardResult: vi.fn().mockResolvedValue(undefined),
+  aiSearchMaterials: vi.fn().mockResolvedValue([]),
+  aiRunOp: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("../lib/api", () => ({
   api: {
@@ -23,6 +40,8 @@ vi.mock("../lib/api", () => ({
     listMaterials: (...a: unknown[]) => listMaterialsMock(...a),
     listMaterialTrash: (...a: unknown[]) => listMaterialTrashMock(...a),
     assocTargets: (...a: unknown[]) => assocTargetsMock(...a),
+    listKbDirs: (...a: unknown[]) => listKbDirsMock(...a),
+    ...aiMocks,
   },
 }));
 
@@ -39,6 +58,7 @@ describe("AppShell", () => {
     workspaceRootMock.mockResolvedValue("X:/ws");
     listMaterialsMock.mockResolvedValue([]);
     listMaterialTrashMock.mockResolvedValue([]);
+    listKbDirsMock.mockResolvedValue([]);
     assocTargetsMock.mockResolvedValue([]);
     useApp.setState({
       loading: true,
@@ -55,6 +75,9 @@ describe("AppShell", () => {
       saveState: "saved",
       assocPicker: null,
       trashOpen: false,
+      rightTab: "outline",
+      settingsOpen: false,
+      aiContext: { entries: [], includeAttachmentText: false },
     });
   });
 
@@ -153,5 +176,38 @@ describe("AppShell", () => {
   test("健康检查入口打开面板", async () => {
     render(<AppShell />);
     await screen.findByTestId("health-entry");
+  });
+
+  // ───── M4：AI 页签 / 设置 / 快捷搜索 ─────
+
+  test("右栏页签含 资料检索 与 AI；点击切换面板", async () => {
+    render(<AppShell />);
+    expect(await screen.findByTestId("tab-material-search")).toBeInTheDocument();
+    expect(screen.getByTestId("tab-ai")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tab-material-search"));
+    await waitFor(() => expect(useApp.getState().rightTab).toBe("material-search"));
+    expect(screen.getByTestId("material-search")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tab-ai"));
+    await waitFor(() => expect(useApp.getState().rightTab).toBe("ai"));
+    expect(await screen.findByTestId("ai-workbench")).toBeInTheDocument();
+  });
+
+  test("左栏 ⚙ 设置 打开 AI 设置弹窗（拉取配置）", async () => {
+    render(<AppShell />);
+    await screen.findByTestId("settings-entry");
+    fireEvent.click(screen.getByTestId("settings-entry"));
+    await waitFor(() => expect(useApp.getState().settingsOpen).toBe(true));
+    expect(await screen.findByTestId("settings-modal")).toBeInTheDocument();
+    expect(aiMocks.aiListProviders).toHaveBeenCalled();
+  });
+
+  test("Ctrl+K → 切到资料检索页签并聚焦输入框", async () => {
+    render(<AppShell />);
+    await screen.findByTestId("tab-outline");
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    });
+    await waitFor(() => expect(useApp.getState().rightTab).toBe("material-search"));
+    expect(screen.getByTestId("material-search-input")).toHaveFocus();
   });
 });
