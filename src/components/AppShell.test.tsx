@@ -84,4 +84,24 @@ describe("AppShell", () => {
     expect(screen.getByText("分布式")).toBeInTheDocument();
     expect(screen.getByText("随想")).toBeInTheDocument();
   });
+
+  test("版本模式下主区渲染版本编辑器（而不是「新建文稿」空状态）", async () => {
+    listPostsMock.mockResolvedValue({ tree: [], posts: [] });
+    const { unmount } = render(<AppShell />);
+    await screen.findByTestId("empty-state");
+    useApp.setState({
+      view: { kind: "version", baseId: "p1", target: "wechat" },
+      selectedId: null,
+      selected: null,
+      version: {
+        id: "v1", base: "p1", target: "wechat", title: "深度工作（公众号版）",
+        body: "继承的内容", publishedUrl: null, publishedAt: null, path: ".versions/p1/publish/wechat.md",
+      },
+    });
+    // 空状态消失，编辑器（版本标题 + 横幅）出现
+    await waitFor(() => expect(screen.queryByTestId("empty-state")).not.toBeInTheDocument());
+    expect(screen.getByTestId("version-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("version-title").textContent).toContain("公众号版");
+    unmount();
+  });
 });

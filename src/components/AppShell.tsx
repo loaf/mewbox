@@ -68,6 +68,8 @@ export function AppShell() {
   const load = useApp((s) => s.load);
   const create = useApp((s) => s.create);
   const selected = useApp((s) => s.selected);
+  const view = useApp((s) => s.view);
+  const version = useApp((s) => s.version);
   const rightTab = useApp((s) => s.rightTab);
   const setRightTab = useApp((s) => s.setRightTab);
 
@@ -96,7 +98,12 @@ export function AppShell() {
     <div className="flex h-full">
       <LeftColumn onCreate={onCreate} />
       <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
-        {selected ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
+        {/* 版本模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
+        {selected || (view.kind === "version" && version) ? (
+          <EditorPane />
+        ) : (
+          <EmptyState onCreate={onCreate} />
+        )}
       </main>
       <aside className="flex w-[288px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
         <div className="flex gap-1 border-b border-[var(--line)] p-2">
