@@ -56,6 +56,7 @@ pub struct LinkRow {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scope {
     Posts,
+    Materials,
 }
 
 pub struct Index {
@@ -96,6 +97,21 @@ CREATE TABLE IF NOT EXISTS links(
   kind TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_links_to ON links(to_id);
+CREATE TABLE IF NOT EXISTS ai_calls(
+  id TEXT PRIMARY KEY,
+  ts TEXT NOT NULL,
+  op TEXT NOT NULL,
+  target_ids TEXT NOT NULL DEFAULT '[]',
+  model TEXT NOT NULL DEFAULT '',
+  provider TEXT NOT NULL DEFAULT '',
+  prompt_digest TEXT NOT NULL DEFAULT '',
+  note TEXT,
+  tokens_in INTEGER NOT NULL DEFAULT 0,
+  tokens_out INTEGER NOT NULL DEFAULT 0,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  outcome TEXT NOT NULL DEFAULT 'preview'
+);
+CREATE INDEX IF NOT EXISTS idx_ai_calls_ts ON ai_calls(ts);
 "#;
 
 impl Index {
@@ -178,6 +194,7 @@ impl Index {
             .join(" OR ");
         let kind = match scope {
             Scope::Posts => "post",
+            Scope::Materials => "material",
         };
         let mut stmt = self.conn.prepare(
             "WITH hits AS (SELECT rowid, rank FROM files_fts WHERE files_fts MATCH ?1)
@@ -347,6 +364,136 @@ impl Index {
         }
         Ok(out)
     }
+
+    // ───── AI 留痕与用量（DESIGN §8.5，M4 T4）─────
+
+    /// 每次 AI 调用入账（留痕仅审计，不作上下文）。outcome 初值 preview。
+    pub fn record_ai_call(&self, c: &AiCall) -> Result<(), Error> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO ai_calls(id, ts, op, target_ids, model, provider, prompt_digest, note, tokens_in, tokens_out, duration_ms, outcome)
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+            params![
+                c.id, c.ts, c.op, c.target_ids, c.model, c.provider, c.prompt_digest,
+                c.note, c.tokens_in as i64, c.tokens_out as i64, c.duration_ms as i64, c.outcome
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// 结果去向更新（preview → adopted|discarded|saved|cancelled|error）。
+    /// 仅当当前仍是 preview 才生效（终态不可逆，防止取消竞态覆盖去向）。
+    pub fn update_ai_outcome(&self, id: &str, outcome: &str, note: Option<&str>) -> Result<(), Error> {
+        self.conn.execute(
+            "UPDATE ai_calls SET outcome=?2, note=COALESCE(?3, note) WHERE id=?1 AND outcome='preview'",
+            params![id, outcome, note],
+        )?;
+        Ok(())
+    }
+
+    /// 一键清空留痕（§8.5）。
+    pub fn clear_ai_calls(&self) -> Result<(), Error> {
+        self.conn.execute("DELETE FROM ai_calls", [])?;
+        Ok(())
+    }
+
+    /// 某日前缀（"2026-08-19"）内的已花费美分（按 provider 单价，Ollama 恒 0）。
+    pub fn ai_cents_since(
+        &self,
+        ts_prefix: &str,
+        prices: &std::collections::HashMap<String, (u64, u64)>,
+    ) -> Result<u64, Error> {
+        let mut stmt = self.conn.prepare(
+            "SELECT provider, tokens_in, tokens_out FROM ai_calls WHERE ts LIKE ?1 || '%'",
+        )?;
+        let rows = stmt.query_map([ts_prefix], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))
+        })?;
+        let mut cents = 0u64;
+        for row in rows {
+            let (provider, tin, tout) = row?;
+            let (pin, pout) = prices.get(&provider).copied().unwrap_or((0, 0));
+            cents += cents_of(tin.max(0) as u64, tout.max(0) as u64, pin, pout);
+        }
+        Ok(cents)
+    }
+
+    /// 用量聚合（period：日/月），按 周期/操作/模型/provider 分组，美分按单价折算。
+    pub fn usage_stats(
+        &self,
+        month_scope: bool,
+        prices: &std::collections::HashMap<String, (u64, u64)>,
+    ) -> Result<Vec<UsageRow>, Error> {
+        let n = if month_scope { 7 } else { 10 };
+        let mut stmt = self.conn.prepare(
+            "SELECT substr(ts,1,?1), op, model, provider, SUM(tokens_in), SUM(tokens_out), COUNT(*)
+             FROM ai_calls GROUP BY substr(ts,1,?1), op, model, provider ORDER BY substr(ts,1,?1) DESC, COUNT(*) DESC",
+        )?;
+        let rows = stmt.query_map([n], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, i64>(4)?,
+                r.get::<_, i64>(5)?,
+                r.get::<_, i64>(6)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (period_key, op, model, provider, tin, tout, calls) = row?;
+            let (pin, pout) = prices.get(&provider).copied().unwrap_or((0, 0));
+            out.push(UsageRow {
+                period_key,
+                op,
+                model,
+                provider,
+                tokens_in: tin.max(0) as u64,
+                tokens_out: tout.max(0) as u64,
+                cents: cents_of(tin.max(0) as u64, tout.max(0) as u64, pin, pout),
+                calls: calls.max(0) as u64,
+            });
+        }
+        Ok(out)
+    }
+}
+
+/// 美分 = tokens_in/1000*in_price + tokens_out/1000*out_price（整数、向下取整，修订决策 6）。
+pub fn cents_of(tokens_in: u64, tokens_out: u64, price_in: u64, price_out: u64) -> u64 {
+    tokens_in * price_in / 1000 + tokens_out * price_out / 1000
+}
+
+/// 一次 AI 调用的留痕行。
+#[derive(Debug, Clone)]
+pub struct AiCall {
+    pub id: String,
+    /// 本地时间 "YYYY-MM-DDTHH:MM:SS"（可注入，跨日聚合测试用）
+    pub ts: String,
+    pub op: String,
+    /// JSON 数组字符串
+    pub target_ids: String,
+    pub model: String,
+    pub provider: String,
+    pub prompt_digest: String,
+    pub note: Option<String>,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub duration_ms: u64,
+    /// preview|adopted|discarded|saved|cancelled|error
+    pub outcome: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageRow {
+    pub period_key: String,
+    pub op: String,
+    pub model: String,
+    pub provider: String,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub cents: u64,
+    pub calls: u64,
 }
 
 fn row_to_meta(r: &rusqlite::Row<'_>) -> rusqlite::Result<FileMeta> {
@@ -457,5 +604,107 @@ mod tests {
         idx.purge_file("id-1").unwrap();
         assert!(idx.list_by_kind("post", false).unwrap().is_empty());
         assert!(idx.search("正文", Scope::Posts).unwrap().is_empty());
+    }
+
+    // ───── AI 留痕（M4 T4）─────
+
+    fn call(id: &str, ts: &str, provider: &str, tin: i64, tout: i64) -> AiCall {
+        AiCall {
+            id: id.into(),
+            ts: ts.into(),
+            op: "summarize".into(),
+            target_ids: r#"["id-1"]"#.into(),
+            model: "gpt-x".into(),
+            provider: provider.into(),
+            prompt_digest: "digest".into(),
+            note: None,
+            tokens_in: tin as u64,
+            tokens_out: tout as u64,
+            duration_ms: 1200,
+            outcome: "preview".into(),
+        }
+    }
+
+    fn prices() -> std::collections::HashMap<String, (u64, u64)> {
+        [("cloud".to_string(), (10u64, 20u64))].into_iter().collect()
+    }
+
+    #[test]
+    fn ai_calls_record_outcomes_and_terminal_guard() {
+        let idx = Index::open_in_memory().unwrap();
+        idx.record_ai_call(&call("c1", "2026-08-19T10:00:00", "cloud", 1000, 500)).unwrap();
+        // preview → adopted
+        idx.update_ai_outcome("c1", "adopted", Some("采纳 3/5 条")).unwrap();
+        // 终态不可逆：adopted 后 cancel 无效
+        idx.update_ai_outcome("c1", "cancelled", None).unwrap();
+        let outcome: String = idx
+            .conn
+            .query_row("SELECT outcome FROM ai_calls WHERE id='c1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(outcome, "adopted");
+        let note: String = idx
+            .conn
+            .query_row("SELECT note FROM ai_calls WHERE id='c1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(note, "采纳 3/5 条");
+        // 不存在的 id 静默无操作
+        idx.update_ai_outcome("ghost", "adopted", None).unwrap();
+        // 清空
+        idx.clear_ai_calls().unwrap();
+        let n: i64 = idx.conn.query_row("SELECT COUNT(*) FROM ai_calls", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn ai_cents_day_and_month_rollover() {
+        let idx = Index::open_in_memory().unwrap();
+        // 昨天两笔 + 今天一笔（跨日/跨月聚合）
+        idx.record_ai_call(&call("a", "2026-07-31T23:00:00", "cloud", 2000, 1000)).unwrap();
+        idx.record_ai_call(&call("b", "2026-08-19T09:00:00", "cloud", 1000, 500)).unwrap();
+        idx.record_ai_call(&call("c", "2026-08-19T23:59:59", "local", 999999, 999999)).unwrap();
+        let day = idx.ai_cents_since("2026-08-19", &prices()).unwrap();
+        // 1000*10/1000 + 500*20/1000 = 10 + 10 = 20；local 无价 → 0
+        assert_eq!(day, 20);
+        let month = idx.ai_cents_since("2026-08", &prices()).unwrap();
+        assert_eq!(month, 20);
+        let july = idx.ai_cents_since("2026-07", &prices()).unwrap();
+        // 2000*10/1000 + 1000*20/1000 = 20 + 20 = 40
+        assert_eq!(july, 40);
+    }
+
+    #[test]
+    fn usage_stats_aggregates_by_period_op_model() {
+        let idx = Index::open_in_memory().unwrap();
+        idx.record_ai_call(&call("a", "2026-08-18T10:00:00", "cloud", 1000, 500)).unwrap();
+        idx.record_ai_call(&call("b", "2026-08-18T11:00:00", "cloud", 1000, 500)).unwrap();
+        idx.record_ai_call(&call("c", "2026-08-19T12:00:00", "local", 100, 100)).unwrap();
+        let day = idx.usage_stats(false, &prices()).unwrap();
+        // 两天两组：19 日（local，0 美分）+ 18 日（cloud 2 次合并）
+        assert_eq!(day.len(), 2, "{day:?}");
+        let d18 = day.iter().find(|r| r.period_key == "2026-08-18").unwrap();
+        assert_eq!(d18.calls, 2);
+        assert_eq!(d18.tokens_in, 2000);
+        assert_eq!(d18.cents, 40); // 2000*10/1000 + 1000*20/1000 = 20 + 20
+        let month = idx.usage_stats(true, &prices()).unwrap();
+        // 按 provider 分组计价：cloud（有价）与 local（无价 0）两组
+        assert_eq!(month.len(), 2, "{month:?}");
+        let m_cloud = month.iter().find(|r| r.provider == "cloud").unwrap();
+        assert_eq!(m_cloud.period_key, "2026-08");
+        assert_eq!(m_cloud.calls, 2);
+        assert_eq!(m_cloud.cents, 40);
+    }
+
+    #[test]
+    fn search_materials_scope_only_hits_materials() {
+        let idx = Index::open_in_memory().unwrap();
+        let mut m = meta("id-m", "研究笔记", "kb/Inbox/note.md");
+        m.kind = "material".into();
+        idx.upsert_file(&m, "独一无二的研究词条").unwrap();
+        idx.upsert_file(&meta("id-p", "深度工作实践", "posts/a.md"), "文稿正文").unwrap();
+        let hits = idx.search("独一无二", Scope::Materials).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "id-m");
+        // OR 分词下 posts 范围不含资料词条
+        assert!(idx.search("独一无二", Scope::Posts).unwrap().is_empty());
     }
 }
