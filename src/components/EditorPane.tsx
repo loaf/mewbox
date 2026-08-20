@@ -450,14 +450,27 @@ export function EditorPane() {
         )}
       </div>
 
-      {/* 编辑器（预览管线预处理 wiki 链接；textarea 保持原文） */}
-      <div ref={wrapRef} className="min-h-0 flex-1" data-color-mode="light" onClick={(e) => void onPreviewClick(e)}>
+      {/* 编辑器（预览管线预处理 wiki 链接；textarea 保持原文）。
+          对齐原型 .editor-wrap：四周留白，编辑区居中卡片 */}
+      <div
+        ref={wrapRef}
+        className="min-h-0 flex-1 px-[26px] py-[18px]"
+        data-color-mode="light"
+        onClick={(e) => void onPreviewClick(e)}
+      >
         <MDEditor
           value={body}
           onChange={(v) => setBody(v ?? "")}
           preview={viewMode === "edit" ? "edit" : viewMode === "live" ? "live" : "preview"}
           height="100%"
-          style={{ background: "var(--card)" }}
+          style={{
+            background: "var(--card)",
+            maxWidth: 820,
+            margin: "0 auto",
+            borderRadius: 12,
+            border: "1px solid var(--line)",
+            boxShadow: "0 2px 10px rgba(90,84,80,.05)",
+          }}
           textareaProps={
             {
               onPaste: onPaste,
@@ -475,7 +488,19 @@ export function EditorPane() {
       </div>
 
       {/* 关联块（文稿/资料侧；版本无块） */}
-      <AssocPanel />
+      <div className="mx-auto max-w-[820px]">
+        <AssocPanel />
+      </div>
+
+      {/* 状态栏（原型 statusbar：字数/Markdown） */}
+      <div
+        className="flex h-[30px] flex-none items-center gap-2 border-t border-[var(--line)] bg-[var(--card)] px-[18px] text-[12px] text-[var(--muted)]"
+        data-testid="statusbar"
+      >
+        <span>共 {body.replace(/\s/g, "").length} 字</span>
+        <span className="opacity-50">·</span>
+        <span>Markdown</span>
+      </div>
 
       {/* M4：选区工具条（edit/live 模式且有选区时浮起） */}
       <SelectionToolbar

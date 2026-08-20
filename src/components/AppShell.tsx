@@ -69,8 +69,8 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const [healthOpen, setHealthOpen] = useState(false);
 
   return (
-    <aside className="flex w-[248px] flex-none flex-col overflow-auto border-r border-[var(--line)] bg-[var(--card)]">
-      <div className="px-3 pt-3 pb-2">
+    <aside className="flex w-[252px] flex-none flex-col overflow-auto border-r border-[var(--line)] bg-[var(--card)]">
+      <div className="px-4 pt-4 pb-3">
         <span className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--cat)] px-3 py-2 text-sm font-bold text-white">
           🐾 喵盒
         </span>
@@ -80,28 +80,28 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
 
       <KbTree />
 
-      <section className="border-t border-[var(--line)] px-3 py-3" aria-label="全局搜索">
+      <section className="border-t border-[var(--line)] px-4 py-4" aria-label="全局搜索">
         <button
           onClick={() => setSearchOpen(true)}
-          className="flex w-full items-center justify-between rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--ink)] hover:border-[var(--cat)]"
+          className="flex w-full items-center justify-between rounded-[9px] bg-[var(--cream)] px-3 py-2.5 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="search-entry"
         >
           <span>🔍 全局搜索</span>
-          <span className="text-[11px] font-normal text-[var(--muted)]">Ctrl+Shift+F</span>
+          <span className="rounded border border-[var(--line)] bg-white px-1.5 py-0.5 text-[10px]">Ctrl+Shift+F</span>
         </button>
       </section>
 
       <div className="mt-auto border-t border-dashed border-[var(--line)]">
         <button
           onClick={() => setSettingsOpen(true)}
-          className="w-full px-4 py-2.5 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="w-full px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="settings-entry"
         >
           ⚙ 设置
         </button>
         <button
           onClick={() => setHealthOpen(true)}
-          className="w-full px-4 py-2.5 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="w-full px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="health-entry"
         >
           🩺 健康检查
@@ -109,7 +109,7 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
         <ExportButtons />
         <button
           onClick={() => setTrashOpen(true)}
-          className="w-full border-t border-dashed border-[var(--line)] px-4 py-2.5 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="w-full border-t border-dashed border-[var(--line)] px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="trash-entry"
         >
           🗑 回收站{trashCount > 0 ? `（${trashCount}）` : ""}
@@ -210,14 +210,16 @@ export function AppShell() {
         {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
         {hasEditorTarget ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
       </main>
-      <aside className="flex w-[304px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
-        <div className="flex gap-1.5 border-b border-[var(--line)] p-2.5">
+      <aside className="flex w-[312px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
+        <div className="flex flex-wrap gap-1.5 border-b border-[var(--line)] p-3">
           {RIGHT_TABS.map(([tab, label]) => (
             <button
               key={tab}
               onClick={() => setRightTab(tab)}
-              className={`rounded-md px-3 py-1.5 text-[13px] ${
-                rightTab === tab ? "bg-[var(--cat-bg)] font-semibold" : "text-[var(--muted)]"
+              className={`rounded-lg px-3 py-1.5 text-[13px] ${
+                rightTab === tab
+                  ? "bg-[var(--cat)] font-semibold text-white"
+                  : "bg-[var(--cream)] text-[var(--muted)] hover:text-[var(--ink)]"
               }`}
               data-testid={`tab-${tab}`}
             >
@@ -225,7 +227,7 @@ export function AppShell() {
             </button>
           ))}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col" data-testid={`panel-${rightTab}`}>
+        <div className="flex min-h-0 flex-1 flex-col p-3.5" data-testid={`panel-${rightTab}`}>
           {rightTab === "outline" ? (
             <OutlinePanel />
           ) : rightTab === "backlinks" ? (
