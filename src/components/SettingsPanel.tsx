@@ -80,6 +80,13 @@ function ProviderRow({
     setTesting(true);
     setTestResult(null);
     try {
+      // 测试前自动保存草稿密钥（验收反馈：先输密钥直接测试 → 未入库 → 401）
+      if (keyDraft.trim() && provider.type !== "ollama") {
+        await api.aiSetKey(provider.id, keyDraft);
+        setKeyDraft("");
+        setKeyNote("密钥已存入系统钥匙串");
+        await onSaved();
+      }
       const r = await api.aiTestConnection(provider.id);
       setTestResult(r.message);
     } catch (e) {

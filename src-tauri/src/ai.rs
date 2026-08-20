@@ -635,6 +635,12 @@ impl AppState {
         let kind = ProviderKind::from_type(&p.ptype)
             .ok_or_else(|| AppError::Ai(format!("未知 provider 类型：{}", p.ptype)))?;
         let key = self.keys.get(provider_id).map_err(AppError::Ai)?;
+        // 云端 provider 缺密钥时明确报错，而不是裸发请求吃一个难懂的 401
+        if kind != ProviderKind::Ollama && key.as_deref().map_or(true, |k| k.trim().is_empty()) {
+            return Err(AppError::Ai(
+                "尚未保存 API 密钥——请先在密钥框输入并保存，再测试连接".into(),
+            ));
+        }
         let req = ChatRequest {
             model: p.model.clone(),
             messages: vec![ChatMessage::user("ping")],
@@ -697,7 +703,8 @@ impl AppState {
     }
 
     pub fn ai_set_key(&self, provider_id: &str, key: &str) -> AppResult<()> {
-        self.keys.set(provider_id, key).map_err(AppError::Ai)
+        // 粘贴常带首尾空白/换行，原样发送会被拒（验收反馈：DeepSeek 401）
+        self.keys.set(provider_id, key.trim()).map_err(AppError::Ai)
     }
 
     pub fn ai_has_key(&self, provider_id: &str) -> AppResult<bool> {
@@ -783,6 +790,31 @@ mod tests {
         let mut routes = std::collections::BTreeMap::new();
         routes.insert(op.to_string(), "cloud".to_string());
         config::save_ai_config(&st.ws, &routes, &Default::default(), AiBudget::default()).unwrap();
+    }
+
+    #[test]
+    fn set_key_trims_whitespace() {
+        let (_d, st) = state();
+        st.ai_set_key("cloud", "  sk-abc\n").unwrap();
+        assert_eq!(st.keys.get("cloud").unwrap().as_deref(), Some("sk-abc"));
+    }
+
+    #[tokio::test]
+    async fn test_connection_missing_key_gives_clear_error() {
+        let (_d, st) = state();
+        let p = provider(1);
+        config::save_provider(&st.ws, &p).unwrap();
+        let err = st.ai_test_connection("cloud").await.unwrap_err();
+        assert!(err.to_string().contains("尚未保存 API 密钥"), "{err}");
+        // ollama 无密钥不拦（连接失败但不是密钥错误）
+        let mut local = p.clone();
+        local.id = "local".into();
+        local.ptype = "ollama".into();
+        local.base_url = "http://127.0.0.1:9".into();
+        config::save_provider(&st.ws, &local).unwrap();
+        let res = st.ai_test_connection("local").await;
+        let msg = res.map(|c| c.message).unwrap_or_else(|e| e.to_string());
+        assert!(!msg.contains("尚未保存"), "{msg}");
     }
 
     /// 录制式事件出口（测试替代 AppHandle）。
@@ -1265,6 +1297,8 @@ mod tests {
     #[tokio::test]
     async fn test_connection_ok_and_failure() {
         let (_d, st) = state();
+        st.ai_set_key("cloud", "sk-test").unwrap();
+        st.ai_set_key("bad", "sk-bad").unwrap();
         let good = mock::spawn(openai_sse(), 7, 0);
         config::save_provider(&st.ws, &provider(good)).unwrap();
         let ok = st.ai_test_connection("cloud").await.unwrap();
