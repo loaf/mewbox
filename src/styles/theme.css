@@ -82,16 +82,33 @@ a {
 .w-md-editor-content {
   background: var(--card);
 }
-.w-md-editor-text-pre > code,
+/* 编辑区双层结构：文字由下层高亮镜像（pre>code）渲染，上层 textarea 文字必须
+   保持透明且背景透明——白底给镜像层，否则白底盖住镜像 → 白字白底不可见（验收反馈修复） */
+.w-md-editor-text {
+  background: #ffffff;
+}
+.w-md-editor-text-pre,
+.w-md-editor-text-pre > code {
+  background: #ffffff !important;
+  color: #2f2b26;
+  font-family: var(--font);
+  font-size: 15px !important;
+  line-height: 1.9 !important;
+}
 .w-md-editor-text-input,
 .w-md-editor-text textarea {
-  background: #ffffff !important;
-  color: #2f2b26 !important;
+  color: transparent !important;
+  background: transparent !important;
   caret-color: #4a453f !important;
   cursor: text !important;
   font-family: var(--font);
   font-size: 15px !important;
   line-height: 1.9 !important;
+  -webkit-text-fill-color: transparent;
+}
+.w-md-editor-text-input::selection,
+.w-md-editor-text textarea::selection {
+  background: rgba(111, 119, 135, 0.25);
 }
 .w-md-editor-text-input:focus,
 .w-md-editor-text textarea:focus {
