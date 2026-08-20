@@ -46,7 +46,7 @@ function num(v: string): number | null {
 
 const inputCls =
   "w-full rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs outline-none focus:border-[var(--cat)]";
-const btnCls = "rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-xs hover:border-[var(--cat)]";
+const btnCls = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
 
 /** 单个 provider 行（模型页签）：字段内联编辑 + 密钥（不回显）+ 测试连接 */
 function ProviderRow({
@@ -160,7 +160,7 @@ function ProviderRow({
           {testing ? "测试中…" : "测试连接"}
         </button>
         <button
-          className="rounded-md bg-[var(--cat)] px-2 py-0.5 text-xs font-semibold text-white"
+          className="rounded-md bg-[var(--cat)] px-3 py-1 text-[13px] font-semibold text-white"
           onClick={() => void api.aiSaveProvider(provider).then(onSaved)}
           data-testid={`provider-save-${provider.id}`}
         >
@@ -231,7 +231,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         data-testid="settings-modal"
       >
         <div className="flex items-center gap-2 border-b border-[var(--line)] px-4 py-2">
-          <span className="text-sm font-bold">⚙ 设置 · AI</span>
+          <span className="text-base font-bold">⚙ 设置 · AI</span>
           <div className="ml-auto flex gap-1">
             {(
               [
@@ -369,7 +369,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 </tbody>
               </table>
               <button
-                className="mt-3 rounded-md bg-[var(--cat)] px-3 py-1 text-xs font-semibold text-white"
+                className="mt-3 rounded-md bg-[var(--cat)] px-3.5 py-1.5 text-[13px] font-semibold text-white"
                 onClick={() => void saveConfig(routes, fallbacks, NO_BUDGET)}
                 data-testid="routes-save"
               >
@@ -386,7 +386,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   按月聚合（默认按日）
                 </label>
                 <button
-                  className="ml-auto rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-500"
+                  className="ml-auto rounded-md border border-red-200 bg-white px-3 py-1 text-[13px] text-red-500"
                   onClick={() => {
                     if (!window.confirm("清空全部 AI 调用留痕？此操作不可撤销（§8.5 一键清空）。")) return;
                     void api.aiClearCalls().then(() => setUsage([]));

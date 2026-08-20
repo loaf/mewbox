@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { save as saveDialogFile } from "@tauri-apps/plugin-dialog";
 import { api, PostSummary, TreeNode } from "../lib/api";
 import { useApp } from "../stores/app";
 import { buildTree, filterAndSort, onFolderDrop, onPostDrop, UNCATEGORIZED } from "../lib/treeOps";
@@ -69,6 +70,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   const load = useApp((s) => s.load);
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<"updated" | "title">("updated");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<{ x: number; y: number; kind: "post" | "folder"; target: PostSummary | string } | null>(null);
@@ -76,8 +78,17 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   const [renameTitle, setRenameTitle] = useState<{ post: PostSummary } | null>(null);
   const [renameSlug, setRenameSlug] = useState<{ post: PostSummary } | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [zipNote, setZipNote] = useState<string | null>(null);
 
-  const visible = useMemo(() => filterAndSort(posts, statusFilter, sortKey), [posts, statusFilter, sortKey]);
+  /** 全体文稿的标签清单（§4.3 标签过滤下拉） */
+  const tags = useMemo(
+    () => [...new Set(posts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b, "zh")),
+    [posts],
+  );
+  const visible = useMemo(
+    () => filterAndSort(posts, statusFilter, sortKey, tagFilter),
+    [posts, statusFilter, sortKey, tagFilter],
+  );
   const tree = useMemo(() => buildTree(visible), [visible]);
 
   const postById = (id: string) => posts.find((p) => p.id === id);
@@ -109,7 +120,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
     return (
       <div key={path} data-testid={`folder-${path.replace(/\//g, "-")}`}>
         <div
-          className={`flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-semibold ${
+          className={`flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[14px] font-semibold ${
             dragOver === path ? "border border-dashed border-[var(--cat)] bg-[var(--cat-bg)]" : ""
           }`}
           style={{ paddingLeft: 8 + depth * 12 }}
@@ -151,7 +162,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                 <div
                   key={ref.id}
                   data-testid="post-item"
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 text-[13px] ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[14px] ${
                     selectedId === ref.id || isBase
                       ? "bg-[var(--cat-bg)] font-semibold"
                       : "hover:bg-[var(--cream)]"
@@ -189,24 +200,24 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   };
 
   return (
-    <section className="border-t border-[var(--line)] px-2 py-3" aria-label="文稿">
+    <section className="border-t border-[var(--line)] px-3 py-3" aria-label="文稿">
       <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-xs font-bold tracking-wide text-[var(--muted)]">📄 文稿</span>
+        <span className="text-[13px] font-bold tracking-wide text-[var(--muted)]">📄 文稿</span>
         <button
           onClick={onNewPost}
-          className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px]"
+          className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
           data-testid="new-post"
         >
           + 新建
         </button>
       </div>
 
-      <div className="mb-2 flex gap-1 px-1">
+      <div className="mb-2 flex gap-1.5 px-1">
         <select
           data-testid="status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-1/2 rounded-md border border-[var(--line)] bg-white px-1 py-0.5 text-[11px]"
+          className="w-1/3 rounded-md border border-[var(--line)] bg-white px-1.5 py-1 text-[12px]"
         >
           <option value="all">全部状态</option>
           <option value="draft">草稿</option>
@@ -215,17 +226,41 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
           <option value="archived">归档</option>
         </select>
         <select
+          data-testid="tag-filter"
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+          className="w-1/3 rounded-md border border-[var(--line)] bg-white px-1.5 py-1 text-[12px]"
+        >
+          <option value="all">全部标签</option>
+          {tags.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <select
           data-testid="sort-key"
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as "updated" | "title")}
-          className="w-1/2 rounded-md border border-[var(--line)] bg-white px-1 py-0.5 text-[11px]"
+          className="w-1/3 rounded-md border border-[var(--line)] bg-white px-1.5 py-1 text-[12px]"
         >
           <option value="updated">按更新时间</option>
           <option value="title">按标题</option>
         </select>
       </div>
 
+      {zipNote && (
+        <p className="mb-2 px-2 text-xs text-[var(--green)]" data-testid="zip-note">
+          {zipNote}
+        </p>
+      )}
+
       {tree.map((node) => renderFolder(node, 0, ""))}
+      {visible.length === 0 && posts.length > 0 && (
+        <div className="px-2 py-4 text-center text-xs text-[var(--muted)]">
+          没有符合过滤条件的文稿
+        </div>
+      )}
       {posts.length === 0 && (
         <div className="px-2 py-4 text-center text-xs text-[var(--muted)]">
           还没有文稿，点「+ 新建」开始写作
@@ -236,7 +271,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
           <div
-            className="fixed z-50 min-w-[140px] rounded-lg border border-[var(--line)] bg-white py-1 text-xs shadow-lg"
+            className="fixed z-50 min-w-[160px] rounded-lg border border-[var(--line)] bg-white py-1.5 text-[13px] shadow-lg"
             style={{ left: menu.x, top: menu.y }}
             data-testid="context-menu"
           >
@@ -272,6 +307,28 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                   data-testid="menu-rename-slug"
                 >
                   重命名文件…
+                </button>
+                <button
+                  className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
+                  data-testid="menu-export-zip"
+                  onClick={async () => {
+                    const post = menu.target as PostSummary;
+                    setMenu(null);
+                    // 打包导出（M5，DESIGN §12）：正文+附件+历史+发布版本
+                    const dest = await saveDialogFile({
+                      title: "打包导出文稿",
+                      defaultPath: `${post.title}.zip`,
+                    });
+                    if (!dest) return;
+                    try {
+                      await api.exportPostZip(post.id, dest);
+                      setZipNote(`已打包导出：${dest}`);
+                    } catch (err) {
+                      setZipNote(`打包导出失败：${err}`);
+                    }
+                  }}
+                >
+                  打包导出…
                 </button>
                 <button
                   className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
@@ -323,8 +380,8 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
 
       {renameFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="rename-folder-dialog">
-            <h3 className="mb-3 text-sm font-bold">重命名目录</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="rename-folder-dialog">
+            <h3 className="mb-3 text-base font-bold">重命名目录</h3>
             <p className="mb-2 text-xs text-[var(--muted)]">{renameFolder.from} →</p>
             <input
               autoFocus
@@ -343,7 +400,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setRenameFolder(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setRenameFolder(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>
@@ -353,8 +410,8 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
 
       {renameTitle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="rename-title-dialog">
-            <h3 className="mb-3 text-sm font-bold">改标题（不改文件名）</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="rename-title-dialog">
+            <h3 className="mb-3 text-base font-bold">改标题（不改文件名）</h3>
             <input
               autoFocus
               defaultValue={renameTitle.post.title}
@@ -372,7 +429,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setRenameTitle(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setRenameTitle(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>
@@ -382,8 +439,8 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
 
       {renameSlug && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="rename-slug-dialog">
-            <h3 className="mb-3 text-sm font-bold">重命名文件（slug）</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="rename-slug-dialog">
+            <h3 className="mb-3 text-base font-bold">重命名文件（slug）</h3>
             <p className="mb-2 text-xs text-[var(--muted)]">
               改的是<strong>物理文件名</strong>（磁盘上的 posts/xxx.md），<strong>列表显示的标题不变</strong>
               ——改标题请用「改标题」。正文与关联块里的引用会自动同步到新路径。
@@ -408,7 +465,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setRenameSlug(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setRenameSlug(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>

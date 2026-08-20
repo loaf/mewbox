@@ -93,7 +93,7 @@ export function HistoryPanel() {
 
   if (snapshots.length === 0) {
     return (
-      <div className="p-3 text-xs text-[var(--muted)]" data-testid="history-empty">
+      <div className="p-3 text-[13px] text-[var(--muted)]" data-testid="history-empty">
         暂无历史快照——保存时的实质修改会自动留档。
       </div>
     );
@@ -103,11 +103,11 @@ export function HistoryPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="history-list">
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-auto p-3">
         {snapshots.map((s) => (
           <div
             key={s.fileName}
-            className={`mb-1 rounded-lg border px-2 py-1.5 text-xs ${
+            className={`mb-1.5 rounded-lg border px-3 py-2 text-[13px] ${
               openSnap === s.fileName ? "border-[var(--cat)] bg-[var(--cat-bg)]" : "border-[var(--line)]"
             }`}
           >
@@ -124,14 +124,14 @@ export function HistoryPanel() {
             </button>
             <div className="mt-1 flex gap-2">
               <button
-                className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]"
+                className="rounded border border-[var(--line)] bg-white px-2.5 py-1 text-[11px]"
                 onClick={() => void onRestore(s.fileName)}
                 data-testid="restore-btn"
               >
                 恢复
               </button>
               <button
-                className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]"
+                className="rounded border border-[var(--line)] bg-white px-2.5 py-1 text-[11px]"
                 onClick={() => setMilestoneFor(s.fileName)}
                 data-testid="milestone-btn"
               >
@@ -175,7 +175,7 @@ export function HistoryPanel() {
       {milestoneFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-[320px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="milestone-dialog">
-            <h3 className="mb-3 text-sm font-bold">里程碑命名（永久保留）</h3>
+            <h3 className="mb-3 text-base font-bold">里程碑命名（永久保留）</h3>
             <input
               autoFocus
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
@@ -186,7 +186,7 @@ export function HistoryPanel() {
               }}
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setMilestoneFor(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setMilestoneFor(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
               <button
@@ -194,7 +194,7 @@ export function HistoryPanel() {
                   const input = document.querySelector('[data-testid="milestone-input"]') as HTMLInputElement;
                   void onMilestone(input.value.trim());
                 }}
-                className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white"
+                className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white"
               >
                 保存
               </button>

@@ -20,7 +20,7 @@ function TrashSection({
       <div className="px-2 py-1 text-[10px] font-bold text-[var(--muted)]">{title}</div>
       {items.length === 0 && <div className="px-3 py-1 text-[10px] text-[var(--muted)]">{emptyHint}</div>}
       {items.map((t) => (
-        <div key={t.id} className="mb-1 rounded-lg border border-[var(--line)] px-3 py-2 text-xs" data-testid="trash-item">
+        <div key={t.id} className="mb-1.5 rounded-lg border border-[var(--line)] px-3 py-2 text-[13px]" data-testid="trash-item">
           <div className="flex items-center gap-2">
             <span className="truncate font-semibold">{t.title}</span>
             <span className="ml-auto rounded-full bg-[var(--cream)] px-2 py-px text-[10px] text-[var(--muted)]">
@@ -32,7 +32,7 @@ function TrashSection({
             <button
               disabled={busy}
               onClick={() => onRestore(t.id)}
-              className="ml-auto rounded border border-[var(--line)] bg-white px-2 py-0.5 disabled:opacity-50"
+              className="ml-auto rounded border border-[var(--line)] bg-white px-3 py-1 text-[12px] disabled:opacity-50"
               data-testid="trash-restore"
             >
               恢复
@@ -100,12 +100,12 @@ export function TrashPanel() {
             关闭
           </button>
         </div>
-        <div className="flex items-center justify-between px-4 py-2 text-[10px] text-[var(--muted)]">
+        <div className="flex items-center justify-between px-4 py-2 text-[11px] text-[var(--muted)]">
           <span>30 天后自动清除（连同历史）</span>
         </div>
         <div className="flex-1 overflow-auto p-2">
           {posts.length === 0 && materials.length === 0 && (
-            <div className="p-4 text-center text-xs text-[var(--muted)]" data-testid="trash-empty">
+            <div className="p-4 text-center text-[13px] text-[var(--muted)]" data-testid="trash-empty">
               回收站是空的
             </div>
           )}
@@ -124,7 +124,7 @@ export function TrashPanel() {
             emptyHint="没有已删资料"
           />
         </div>
-        <div className="border-t border-dashed border-[var(--line)] px-4 py-2 text-[10px] text-[var(--muted)]">
+        <div className="border-t border-dashed border-[var(--line)] px-4 py-2 text-[11px] text-[var(--muted)]">
           喵盒不提供不可逆的删除入口——删除的内容总能在 30 天内找回。
         </div>
       </div>

@@ -46,6 +46,8 @@ futures-util = "0.3"
 keyring = { version = "3", features = ["windows-native"] }
 pdf-extract = "0.7"
 base64 = "0.22"
+# 单文稿打包导出（DESIGN §12 M5）：zip 写入 + 解包测试
+zip = { version = "2", features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -19,9 +19,17 @@ const apiMocks = vi.hoisted(() => ({
   listMaterialTrash: vi.fn().mockResolvedValue([]),
   listAllVersions: vi.fn().mockResolvedValue([]),
   workspaceRoot: vi.fn().mockResolvedValue(""),
+  // M5
+  exportPostZip: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../lib/api", () => ({ api: apiMocks }));
+
+// M5：打包导出走系统保存对话框
+const dialogMocks = vi.hoisted(() => ({ save: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: (...a: unknown[]) => dialogMocks.save(...a),
+}));
 
 import { useApp } from "../stores/app";
 import type { PostSummary } from "../lib/api";
@@ -108,6 +116,21 @@ describe("PostTree", () => {
     expect(items[0].textContent).toContain("alpha");
   });
 
+  test("标签过滤下拉（M5 §4.3 尾欠）：按标签筛可见文稿", async () => {
+    const a = { ...post("a", "alpha", null), tags: ["深度工作", "随笔"] };
+    const b = { ...post("b", "beta", null), tags: ["随笔"] };
+    await mount([a, b]);
+    const tagFilter = screen.getByTestId("tag-filter");
+    // 选项来自全体文稿 tags（去重）
+    expect(tagFilter.textContent).toContain("深度工作");
+    expect(tagFilter.textContent).toContain("随笔");
+    await userEvent.selectOptions(tagFilter, "深度工作");
+    expect(screen.queryByText("beta")).not.toBeInTheDocument();
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    await userEvent.selectOptions(tagFilter, "all");
+    expect(screen.getByText("beta")).toBeInTheDocument();
+  });
+
   test("右键目录 → 重命名对话框 → renameVirtualFolder", async () => {
     await mount([P1, P2]);
     const folder = screen.getByTestId("folder-技术").firstElementChild!;
@@ -156,5 +179,26 @@ describe("PostTree", () => {
     await userEvent.clear(input);
     await userEvent.type(input, "new-slug{Enter}");
     await waitFor(() => expect(apiMocks.renamePostSlug).toHaveBeenCalledWith("p3", "new-slug"));
+  });
+
+  // ───── M5：打包导出 ─────
+
+  test("右键「打包导出…」→ 保存对话框 → exportPostZip(id, 路径) + 成功提示", async () => {
+    dialogMocks.save.mockResolvedValue("C:/out/随想.zip");
+    await mount([P3]);
+    fireEvent.contextMenu(screen.getByText("随想").closest('[data-testid="post-item"]')!);
+    fireEvent.click(screen.getByTestId("menu-export-zip"));
+    await waitFor(() => expect(dialogMocks.save).toHaveBeenCalled());
+    await waitFor(() => expect(apiMocks.exportPostZip).toHaveBeenCalledWith("p3", "C:/out/随想.zip"));
+    await waitFor(() => expect(screen.getByTestId("zip-note").textContent).toContain("已打包导出"));
+  });
+
+  test("保存对话框取消 → 不调 exportPostZip", async () => {
+    dialogMocks.save.mockResolvedValue(null);
+    await mount([P3]);
+    fireEvent.contextMenu(screen.getByText("随想").closest('[data-testid="post-item"]')!);
+    fireEvent.click(screen.getByTestId("menu-export-zip"));
+    await waitFor(() => expect(dialogMocks.save).toHaveBeenCalled());
+    expect(apiMocks.exportPostZip).not.toHaveBeenCalled();
   });
 });

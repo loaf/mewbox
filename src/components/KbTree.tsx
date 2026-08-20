@@ -84,7 +84,7 @@ export function KbTree() {
     return (
       <div key={path} data-testid={`kb-folder-${path.replace(/\//g, "-")}`}>
         <div
-          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-semibold"
+          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[14px] font-semibold"
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => setCollapsed((c) => ({ ...c, [path]: !c[path] }))}
           onContextMenu={(e) => {
@@ -106,7 +106,7 @@ export function KbTree() {
               <div
                 key={m.id}
                 data-testid="material-item"
-                className={`flex cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 text-[13px] ${
+                className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[14px] ${
                   activeMaterialId === m.id
                     ? "bg-[var(--cat-bg)] font-semibold"
                     : "hover:bg-[var(--cream)]"
@@ -129,20 +129,20 @@ export function KbTree() {
   };
 
   return (
-    <section className="border-t border-[var(--line)] px-2 py-3" aria-label="知识库">
+    <section className="border-t border-[var(--line)] px-3 py-3" aria-label="知识库">
       <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-xs font-bold tracking-wide text-[var(--muted)]">📚 知识库</span>
+        <span className="text-[13px] font-bold tracking-wide text-[var(--muted)]">📚 知识库</span>
         <div className="flex gap-1">
           <button
             onClick={() => setNewDialog({ dir: "Inbox" })}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px]"
+            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
             data-testid="kb-new-material"
           >
             + 新建
           </button>
           <button
             onClick={() => void onCreateDir("")}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px]"
+            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
             data-testid="kb-new-dir-btn"
             title="新建目录（kb 根下）"
           >
@@ -150,7 +150,7 @@ export function KbTree() {
           </button>
           <button
             onClick={() => void onImport()}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px]"
+            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
             data-testid="kb-import"
           >
             导入
@@ -167,7 +167,7 @@ export function KbTree() {
 
       <button
         onClick={() => setTrashOpen(true)}
-        className="mt-2 w-full rounded-md px-2 py-1 text-left text-[11px] text-[var(--muted)] hover:text-[var(--ink)]"
+        className="mt-2 w-full rounded-md px-2 py-1.5 text-left text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
         data-testid="kb-trash-entry"
       >
         🗑 资料回收站{materialTrashCount > 0 ? `（${materialTrashCount}）` : ""}
@@ -185,7 +185,7 @@ export function KbTree() {
             }}
           />
           <div
-            className="fixed z-50 min-w-[140px] rounded-lg border border-[var(--line)] bg-white py-1 text-xs shadow-lg"
+            className="fixed z-50 min-w-[160px] rounded-lg border border-[var(--line)] bg-white py-1.5 text-[13px] shadow-lg"
             style={{ left: menu.x, top: menu.y }}
             data-testid="kb-context-menu"
           >
@@ -284,8 +284,8 @@ export function KbTree() {
       {/* 新建资料 */}
       {newDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="kb-new-dialog">
-            <h3 className="mb-3 text-sm font-bold">新建资料</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="kb-new-dialog">
+            <h3 className="mb-3 text-base font-bold">新建资料</h3>
             <input
               autoFocus
               data-testid="kb-new-title"
@@ -306,7 +306,7 @@ export function KbTree() {
               ))}
             </datalist>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setNewDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setNewDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
               <button
@@ -317,7 +317,7 @@ export function KbTree() {
                   setNewDialog(null);
                   await useApp.getState().createMaterial(title, dir || "Inbox");
                 }}
-                className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white"
+                className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white"
                 data-testid="kb-new-confirm"
               >
                 创建
@@ -330,8 +330,8 @@ export function KbTree() {
       {/* 重命名资料文件 */}
       {renameDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="kb-rename-dialog">
-            <h3 className="mb-3 text-sm font-bold">重命名资料文件</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="kb-rename-dialog">
+            <h3 className="mb-3 text-base font-bold">重命名资料文件</h3>
             <input
               autoFocus
               defaultValue={renameDialog.m.path.split("/").pop()?.replace(/\.md$/, "") ?? ""}
@@ -349,7 +349,7 @@ export function KbTree() {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setRenameDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setRenameDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>
@@ -360,8 +360,8 @@ export function KbTree() {
       {/* 移动资料（输入目录路径） */}
       {moveDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="kb-move-dialog">
-            <h3 className="mb-3 text-sm font-bold">移动资料</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="kb-move-dialog">
+            <h3 className="mb-3 text-base font-bold">移动资料</h3>
             <p className="mb-2 text-xs text-[var(--muted)]">
               {moveDialog.m.path} → 引用与关联会自动同步
             </p>
@@ -382,7 +382,7 @@ export function KbTree() {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setMoveDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setMoveDialog(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>
@@ -393,8 +393,8 @@ export function KbTree() {
       {/* 重命名目录 */}
       {renameDir && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[340px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl" data-testid="kb-rename-dir-dialog">
-            <h3 className="mb-3 text-sm font-bold">重命名目录</h3>
+          <div className="w-[360px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl" data-testid="kb-rename-dir-dialog">
+            <h3 className="mb-3 text-base font-bold">重命名目录</h3>
             <p className="mb-2 text-xs text-[var(--muted)]">{renameDir.from} →（引用自动同步）</p>
             <input
               autoFocus
@@ -413,7 +413,7 @@ export function KbTree() {
               className="mb-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--cat)]"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setRenameDir(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+              <button onClick={() => setRenameDir(null)} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
                 取消
               </button>
             </div>

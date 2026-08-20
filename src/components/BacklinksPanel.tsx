@@ -39,7 +39,7 @@ export function BacklinksPanel() {
 
   if (!currentId) {
     return (
-      <div className="p-3 text-xs text-[var(--muted)]" data-testid="backlinks-empty">
+      <div className="p-3 text-[13px] text-[var(--muted)]" data-testid="backlinks-empty">
         选中文稿或资料后，这里显示谁在引用它。
       </div>
     );
@@ -47,19 +47,19 @@ export function BacklinksPanel() {
 
   if (links.length === 0) {
     return (
-      <div className="p-3 text-xs text-[var(--muted)]" data-testid="backlinks-empty">
+      <div className="p-3 text-[13px] text-[var(--muted)]" data-testid="backlinks-empty">
         暂无反向链接——别人用 [[标题]] 或「关联」指向这里时会列出。
       </div>
     );
   }
 
   return (
-    <div className="p-2" data-testid="backlinks-list">
+    <div className="p-3" data-testid="backlinks-list">
       {links.map((b, i) => (
         <button
           key={`${b.fromId}-${b.kind}-${i}`}
           onClick={() => jump(b.fromId)}
-          className="mb-1 block w-full rounded-lg border border-[var(--line)] px-2 py-1.5 text-left text-xs hover:bg-[var(--cream)]"
+          className="mb-1.5 block w-full rounded-lg border border-[var(--line)] px-3 py-2 text-left text-[13px] hover:bg-[var(--cream)]"
           data-testid="backlink-item"
         >
           <div className="flex items-center gap-2">

@@ -89,10 +89,10 @@ function AssocPicker({ kind, currentId }: { kind: "posts" | "materials"; current
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div
-        className="flex max-h-[60vh] w-[380px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl"
+        className="flex max-h-[60vh] w-[380px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl"
         data-testid="assoc-picker"
       >
-        <h3 className="mb-3 text-sm font-bold">关联{kind === "posts" ? "文稿" : "资料"}（可多选）</h3>
+        <h3 className="mb-3 text-base font-bold">关联{kind === "posts" ? "文稿" : "资料"}（可多选）</h3>
         <div className="min-h-0 flex-1 overflow-auto">
           {list.filter((i) => i.id !== currentId).length === 0 && (
             <div className="py-4 text-center text-xs text-[var(--muted)]">没有可关联的条目</div>
@@ -113,12 +113,12 @@ function AssocPicker({ kind, currentId }: { kind: "posts" | "materials"; current
             ))}
         </div>
         <div className="mt-3 flex justify-end gap-2">
-          <button onClick={closeAssocPicker} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+          <button onClick={closeAssocPicker} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
             取消
           </button>
           <button
             onClick={() => void confirm()}
-            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white"
+            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white"
             data-testid="assoc-picker-confirm"
           >
             关联
@@ -188,7 +188,7 @@ export function AssocPanel() {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] bg-[var(--card)] px-5 py-1.5 text-xs"
+      className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] bg-[var(--card)] px-5 py-2 text-[13px]"
       data-testid="assoc-panel"
     >
       <span className="font-semibold text-[var(--muted)]">🔗 关联</span>
@@ -213,14 +213,14 @@ export function AssocPanel() {
       <div className="ml-auto flex gap-1">
         <button
           onClick={() => openAssocPicker("posts")}
-          className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+          className="rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[12px]"
           data-testid="assoc-add-posts"
         >
           + 关联文稿…
         </button>
         <button
           onClick={() => openAssocPicker("materials")}
-          className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+          className="rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[12px]"
           data-testid="assoc-add-materials"
         >
           + 关联资料…

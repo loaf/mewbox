@@ -4,6 +4,7 @@ pub mod ai;
 pub mod assets;
 pub mod assoc;
 pub mod config;
+pub mod export;
 pub mod frontmatter;
 pub mod health;
 pub mod history;
@@ -135,6 +136,7 @@ pub fn run() {
             commands::set_snapshot_milestone,
             commands::save_pasted_image,
             commands::search_posts,
+            commands::search_all,
             commands::scan_refresh,
             commands::import_external,
             commands::list_publish_versions,
@@ -193,7 +195,9 @@ pub fn run() {
             commands::ai_delete_key,
             commands::ai_usage,
             commands::ai_clear_calls,
-            commands::ai_search_materials
+            commands::ai_search_materials,
+            commands::export_md,
+            commands::export_post_zip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

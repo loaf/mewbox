@@ -48,4 +48,22 @@ describe("treeOps", () => {
     expect(filterAndSort(posts, "all", "updated").map((p) => p.id)).toEqual(["b", "c", "a"]);
     expect(filterAndSort(posts, "all", "title").map((p) => p.title)).toEqual(["alpha", "beta", "gamma"]);
   });
+
+  test("filterAndSort 标签过滤（M5 §4.3 尾欠）：可与状态过滤叠加；默认 all 不筛", () => {
+    const withTags = (id: string, tags: string[]): PostSummary => ({ ...post(id, id, null), tags });
+    const posts = [
+      withTags("a", ["深度工作", "随笔"]),
+      withTags("b", ["随笔"]),
+      withTags("c", []),
+    ];
+    // 单标签
+    expect(filterAndSort(posts, "all", "updated", "深度工作").map((p) => p.id)).toEqual(["a"]);
+    expect(filterAndSort(posts, "all", "updated", "随笔").map((p) => p.id)).toEqual(["a", "b"]);
+    // 不传/传 all → 不过滤
+    expect(filterAndSort(posts, "all", "updated").map((p) => p.id)).toEqual(["a", "b", "c"]);
+    expect(filterAndSort(posts, "all", "updated", "all").map((p) => p.id)).toEqual(["a", "b", "c"]);
+    // 与状态过滤叠加（b 为 done）
+    const bDone = { ...posts[1], status: "done" };
+    expect(filterAndSort([posts[0], bDone], "draft", "updated", "随笔").map((p) => p.id)).toEqual(["a"]);
+  });
 });

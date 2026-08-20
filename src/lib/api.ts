@@ -137,6 +137,14 @@ export interface SearchHit {
   id: string;
   path: string;
   title: string;
+  /** post | material | publish（M5 全局搜索分组用；searchPosts 旧调用方可不关心） */
+  kind?: string;
+}
+
+/** export_md 返回：导出的 md 文件数与随行附件数 */
+export interface ExportMdReport {
+  files: number;
+  assets: number;
 }
 
 export interface ScanReport {
@@ -300,6 +308,16 @@ export const api = {
   savePastedImageAt: (fileRelPath: string, bytes: Uint8Array, ext: string): Promise<string> =>
     invoke("save_pasted_image_at", { fileRelPath, bytes: Array.from(bytes), ext }),
   searchPosts: (query: string): Promise<SearchHit[]> => invoke("search_posts", { query }),
+  // ───── 全局搜索 / 导出（M5，DESIGN §9/§12） ─────
+  /** 全局搜索：文稿+资料；includeVersions 再并入发布版本（分组按 hit.kind 前端完成） */
+  searchAll: (query: string, includeVersions?: boolean): Promise<SearchHit[]> =>
+    invoke("search_all", { query, includeVersions: includeVersions ?? false }),
+  /** Markdown 目录导出（scope: posts | kb；frontmatter 透传、附件随行） */
+  exportMd: (scope: "posts" | "kb", destDir: string): Promise<ExportMdReport> =>
+    invoke("export_md", { scope, destDir }),
+  /** 单文稿打包导出（正文+附件+历史+发布版本） */
+  exportPostZip: (postId: string, destPath: string): Promise<void> =>
+    invoke("export_post_zip", { postId, destPath }),
   scanRefresh: (): Promise<ScanReport> => invoke("scan_refresh"),
   importExternal: (path: string): Promise<PostSummary> =>
     invoke("import_external", { path }),

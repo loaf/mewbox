@@ -29,7 +29,7 @@ export function attachmentsFromBody(body: string): string[] {
   return [...out];
 }
 
-const btn = "rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-xs hover:border-[var(--cat)]";
+const btn = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
 
 export function AIWorkbench() {
   const posts = useApp((s) => s.posts);
@@ -230,7 +230,7 @@ export function AIWorkbench() {
   const hasEditorTarget = !!(selected || version || material);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-3 text-xs" data-testid="ai-workbench">
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto p-3.5 text-[13px]" data-testid="ai-workbench">
       {/* ① 上下文 */}
       <section>
         <div className="mb-1 font-bold">① 上下文（文稿 + 资料混选）</div>
@@ -321,7 +321,7 @@ export function AIWorkbench() {
       <section>
         <div className="mb-1 font-bold">② 操作</div>
         <div className="flex flex-wrap items-center gap-1">
-          <select value={op} onChange={(e) => setOp(e.target.value)} className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs" data-testid="ai-op-select">
+          <select value={op} onChange={(e) => setOp(e.target.value)} className="rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px]" data-testid="ai-op-select">
             {WORKBENCH_OPS.map(([v, label]) => (
               <option key={v} value={v}>{label}</option>
             ))}
@@ -380,7 +380,7 @@ export function AIWorkbench() {
 
       {/* ④ 开始 / 流式预览 */}
       <button
-        className="self-start rounded-md bg-[var(--cat)] px-4 py-1 text-xs font-semibold text-white disabled:opacity-40"
+        className="self-start rounded-md bg-[var(--cat)] px-4 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
         disabled={entries.length === 0 || (op === "describe_attachment" && materialAttachments.length === 0)}
         onClick={start}
         data-testid="ai-start"

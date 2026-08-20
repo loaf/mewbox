@@ -64,7 +64,7 @@ export interface SelectionToolbarProps {
   enabled: boolean;
 }
 
-const btn = "rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-xs hover:border-[var(--cat)]";
+const btn = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
 
 export function SelectionToolbar({ anchor, clear, lock, onReplaceRange, enabled }: SelectionToolbarProps) {
   const stream = useAIStream();
@@ -178,11 +178,11 @@ export function SelectionToolbar({ anchor, clear, lock, onReplaceRange, enabled 
   if (op && callId) {
     return (
       <div
-        className="fixed z-50 flex w-[360px] flex-col gap-1 rounded-lg border border-[var(--line)] bg-[var(--card)] p-2 shadow-xl"
+        className="fixed z-50 flex w-[380px] flex-col gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--card)] p-3 shadow-xl"
         style={{ left, top }}
         data-testid="sel-result"
       >
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-[13px]">
           <span className="font-semibold">{stream.status === "streaming" ? "生成中…" : stream.status === "error" ? "出错" : "结果"}</span>
           <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--muted)]">{routeLabel(config, op)}</span>
           <button className="text-[var(--muted)]" onClick={() => close()} data-testid="sel-close">✕</button>

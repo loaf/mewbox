@@ -146,6 +146,16 @@ pub fn search_posts(
     state.search_posts(&query)
 }
 
+/// 全局搜索（M5，DESIGN §9）：文稿+资料；include_versions 并入发布版本。
+#[tauri::command]
+pub fn search_all(
+    state: tauri::State<'_, AppState>,
+    query: String,
+    include_versions: bool,
+) -> AppResult<Vec<SearchHit>> {
+    state.search_all(&query, include_versions)
+}
+
 #[tauri::command]
 pub fn scan_refresh(state: tauri::State<'_, AppState>) -> AppResult<ScanReport> {
     state.scan_refresh()
@@ -470,6 +480,26 @@ pub fn clean_orphan_assets(
     fingerprints: Vec<String>,
 ) -> AppResult<usize> {
     state.clean_orphan_assets(&fingerprints)
+}
+
+// ───── 导出/迁移（M5，DESIGN §12） ─────
+
+#[tauri::command]
+pub fn export_md(
+    state: tauri::State<'_, AppState>,
+    scope: String,
+    dest_dir: String,
+) -> AppResult<crate::export::ExportMdReport> {
+    state.export_md(&scope, &dest_dir)
+}
+
+#[tauri::command]
+pub fn export_post_zip(
+    state: tauri::State<'_, AppState>,
+    post_id: String,
+    dest_path: String,
+) -> AppResult<()> {
+    state.export_post_zip(&post_id, &dest_path)
 }
 
 // AppError 已实现 Serialize（字符串形式），命令可直接返回 Result

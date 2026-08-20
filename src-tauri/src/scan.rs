@@ -53,6 +53,11 @@ fn rel(root: &Path, p: &Path) -> String {
         .replace('\\', "/")
 }
 
+/// 扫描/导出共用的忽略目录（M5 忽略规则完善）：回收站 + 工作区工具目录。
+pub fn is_ignored_dir(name: &str) -> bool {
+    matches!(name, ".trash" | ".git" | "node_modules")
+}
+
 /// 扫描 posts/（递归，排除 .trash/），解析 frontmatter。
 pub fn scan_posts(ws: &Workspace) -> Result<ScanReport, std::io::Error> {
     let posts_dir = ws.root.join("posts");
@@ -63,7 +68,7 @@ pub fn scan_posts(ws: &Workspace) -> Result<ScanReport, std::io::Error> {
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
-            !(e.depth() > 0 && name == ".trash")
+            e.depth() == 0 || !is_ignored_dir(&name)
         })
     {
         let entry = match entry {
@@ -130,7 +135,7 @@ pub fn scan_materials(ws: &Workspace) -> Result<ScanReport, std::io::Error> {
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
-            !(e.depth() > 0 && name == ".trash")
+            e.depth() == 0 || !is_ignored_dir(&name)
         })
     {
         let entry = match entry {
@@ -267,6 +272,34 @@ mod tests {
         assert_eq!(report.posts.len(), 1);
         assert_eq!(report.posts[0].0.id, ID_1);
         assert!(report.pending_import.is_empty());
+    }
+
+    #[test]
+    fn scan_excludes_git_and_node_modules() {
+        let (_dir, ws) = ws_with();
+        write_md(&ws, "posts/a.md", Some(&fm(ID_1, "A")), "正文");
+        write_md(
+            &ws,
+            "posts/.git/notes.md",
+            Some(&fm("3f2c0000-0000-0000-0000-000000000002", "Git")),
+            "git 内容",
+        );
+        write_md(
+            &ws,
+            "posts/node_modules/pkg/readme.md",
+            Some(&fm("3f2c0000-0000-0000-0000-000000000003", "Pkg")),
+            "依赖文档",
+        );
+        let report = scan_posts(&ws).unwrap();
+        assert_eq!(report.posts.len(), 1, "{:?}", report.posts);
+        assert!(report.pending_import.is_empty(), "忽略目录不进待导入");
+
+        write_md(&ws, "kb/研究/笔记.md", Some(&fm(ID_M, "研究笔记")), "内容");
+        write_md(&ws, "kb/.git/config.md", None, "无 id");
+        write_md(&ws, "kb/node_modules/x/index.md", None, "无 id");
+        let m = scan_materials(&ws).unwrap();
+        assert_eq!(m.materials.len(), 1);
+        assert!(m.material_pending_import.is_empty(), "{:?}", m.material_pending_import);
     }
 
     #[test]

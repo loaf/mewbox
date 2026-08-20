@@ -312,7 +312,7 @@ export function EditorPane() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {isVersion && view.kind === "version" && (
-        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--cat-bg)] px-5 py-1.5 text-xs" data-testid="version-banner">
+        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--cat-bg)] px-5 py-2 text-[13px]" data-testid="version-banner">
           <span className="font-semibold">📣 {view.target} 版</span>
           <span className="text-[var(--muted)]">属于《{baseTitle ?? view.baseId}》· 编辑不影响母版</span>
           {version?.publishedUrl && (
@@ -320,14 +320,14 @@ export function EditorPane() {
               已发布 ↗
             </a>
           )}
-          <div className="ml-auto flex gap-1">
-            <button className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5" onClick={() => setSyncOpen(true)} data-testid="sync-btn">
+          <div className="ml-auto flex gap-1.5">
+            <button className="rounded-md border border-[var(--line)] bg-white px-3 py-1" onClick={() => setSyncOpen(true)} data-testid="sync-btn">
               从文稿同步…
             </button>
-            <button className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5" onClick={() => setRecordOpen(true)} data-testid="record-btn">
+            <button className="rounded-md border border-[var(--line)] bg-white px-3 py-1" onClick={() => setRecordOpen(true)} data-testid="record-btn">
               发布记录…
             </button>
-            <button className="rounded-md bg-[var(--cat)] px-2 py-0.5 font-semibold text-white" onClick={() => void backToPost()} data-testid="back-to-post">
+            <button className="rounded-md bg-[var(--cat)] px-3 py-1 font-semibold text-white" onClick={() => void backToPost()} data-testid="back-to-post">
               回到母版
             </button>
           </div>
@@ -335,19 +335,19 @@ export function EditorPane() {
       )}
 
       {isMaterial && view.kind === "material" && (
-        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-1.5 text-xs" data-testid="material-banner">
+        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-2 text-[13px]" data-testid="material-banner">
           <span className="font-semibold">📚 资料 · {material?.folder ?? "Inbox"}</span>
           <span className="text-[var(--muted)]">资料服务写作——升格后进入文稿区</span>
-          <div className="ml-auto flex gap-1">
+          <div className="ml-auto flex gap-1.5">
             <button
-              className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+              className="rounded-md border border-[var(--line)] bg-white px-3 py-1"
               onClick={() => void onConvertToPost()}
               data-testid="convert-to-post"
             >
               升格为文稿
             </button>
             <button
-              className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+              className="rounded-md border border-[var(--line)] bg-white px-3 py-1"
               onClick={() => openAssocPicker("posts")}
               data-testid="link-to-posts"
             >
@@ -358,7 +358,7 @@ export function EditorPane() {
       )}
 
       {/* 顶部：标题 + 状态 + 模式 + 保存指示（资料无状态/发布） */}
-      <div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--card)] px-5 py-2">
+      <div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--card)] px-5 py-2.5">
         {isVersion ? (
           <span className="min-w-0 flex-1 truncate text-lg font-bold" data-testid="version-title">
             {version?.title || `${(view as { target: string }).target} 版`}
@@ -376,7 +376,7 @@ export function EditorPane() {
         {isVersion && (
           <button
             onClick={() => setPublishOpen(true)}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+            className="rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px]"
             data-testid="open-publish-menu"
           >
             发布版本…
@@ -386,7 +386,7 @@ export function EditorPane() {
           <select
             value={selected?.status ?? "draft"}
             onChange={(e) => void onStatusChange(e.target.value)}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+            className="rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px]"
             data-testid="editor-status"
           >
             {STATUS_OPTIONS.map(([v, label]) => (
@@ -396,21 +396,21 @@ export function EditorPane() {
             ))}
           </select>
         )}
-        <span className="text-[11px] text-[var(--muted)]" data-testid="save-indicator">
+        <span className="text-xs text-[var(--muted)]" data-testid="save-indicator">
           {saveLabel}
         </span>
         {!isVersion && (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <button
               onClick={() => void openProofread()}
-              className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+              className="rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px]"
               data-testid="btn-proofread"
             >
               润色建议
             </button>
             <button
               onClick={() => void openCheckErrors()}
-              className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+              className="rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px]"
               data-testid="btn-check-errors"
             >
               查错
@@ -420,8 +420,8 @@ export function EditorPane() {
       </div>
 
       {/* 模式切换（prototype subbar 样式） */}
-      <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#fbf7ef] px-5 py-1.5 text-xs">
-        <div className="inline-flex rounded-lg bg-[var(--cream)] p-0.5">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#fbf7ef] px-5 py-2 text-[13px]">
+        <div className="inline-flex rounded-lg bg-[var(--cream)] p-1">
           {(
             [
               ["edit", "源码"],
@@ -432,7 +432,7 @@ export function EditorPane() {
             <button
               key={mode}
               onClick={() => setViewMode(mode as ViewMode)}
-              className={`rounded-md px-3 py-1 ${viewMode === mode ? "bg-white font-semibold shadow-sm" : "text-[var(--muted)]"}`}
+              className={`rounded-md px-3.5 py-1.5 ${viewMode === mode ? "bg-white font-semibold shadow-sm" : "text-[var(--muted)]"}`}
               data-testid={`mode-${mode}`}
             >
               {label}
@@ -442,7 +442,7 @@ export function EditorPane() {
         {view.kind === "post" && selectedId && (
           <button
             onClick={() => setPublishOpen(true)}
-            className="ml-auto rounded-md border border-[var(--line)] bg-white px-2 py-0.5"
+            className="ml-auto rounded-md border border-[var(--line)] bg-white px-3 py-1.5"
             data-testid="publish-entry"
           >
             发布版本…

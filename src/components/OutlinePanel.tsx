@@ -12,7 +12,7 @@ export function OutlinePanel() {
   const headings = useMemo(() => extractHeadings(body), [body]);
 
   if (headings.length === 0) {
-    return <div className="p-3 text-xs text-[var(--muted)]">暂无标题结构（用 # 开始一级标题）</div>;
+    return <div className="p-3 text-[13px] text-[var(--muted)]">暂无标题结构（用 # 开始一级标题）</div>;
   }
 
   const onJump = (slug: string) => {
@@ -23,12 +23,12 @@ export function OutlinePanel() {
   };
 
   return (
-    <nav className="p-2" data-testid="outline-list">
+    <nav className="p-3" data-testid="outline-list">
       {headings.map((h) => (
         <button
           key={h.slug}
           onClick={() => onJump(h.slug)}
-          className="block w-full truncate rounded-md px-2 py-1 text-left text-xs hover:bg-[var(--cream)]"
+          className="block w-full truncate rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-[var(--cream)]"
           style={{ paddingLeft: 8 + (h.level - 1) * 12, fontWeight: h.level === 1 ? 600 : 400 }}
           title={h.text}
         >

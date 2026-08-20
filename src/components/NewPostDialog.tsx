@@ -28,8 +28,8 @@ export function NewPostDialog({ open, folders, onCancel, onCreate }: NewPostDial
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" data-testid="new-post-dialog">
-      <div className="w-[380px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl">
-        <h3 className="mb-3 text-sm font-bold">新建文稿</h3>
+      <div className="w-[380px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl">
+        <h3 className="mb-3 text-base font-bold">新建文稿</h3>
         <input
           autoFocus
           data-testid="new-post-title"
@@ -71,13 +71,13 @@ export function NewPostDialog({ open, folders, onCancel, onCreate }: NewPostDial
           {creatingFolder ? "← 选择现有目录" : "+ 新建目录…"}
         </button>
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+          <button onClick={onCancel} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
             取消
           </button>
           <button
             onClick={confirm}
             data-testid="new-post-confirm"
-            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white"
+            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white"
           >
             创建
           </button>

@@ -69,14 +69,18 @@ export function onFolderDrop(
 
 export type SortKey = "updated" | "title";
 
-/** 状态过滤 + 排序（DESIGN §4.3） */
+/** 状态/标签过滤 + 排序（DESIGN §4.3；标签过滤为 M5 尾欠补齐） */
 export function filterAndSort(
   posts: PostSummary[],
   statusFilter: string | "all",
   sortKey: SortKey,
+  tagFilter: string | "all" = "all",
 ): PostSummary[] {
-  const filtered =
-    statusFilter === "all" ? posts : posts.filter((p) => p.status === statusFilter);
+  const filtered = posts.filter(
+    (p) =>
+      (statusFilter === "all" || p.status === statusFilter) &&
+      (tagFilter === "all" || p.tags.includes(tagFilter)),
+  );
   return [...filtered].sort((a, b) => {
     if (sortKey === "title") return a.title.localeCompare(b.title, "zh");
     return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""); // 更新时间新→旧

@@ -66,8 +66,8 @@ export function PublishDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" data-testid="publish-dialog">
-      <div className="max-h-[80vh] w-[440px] overflow-auto rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl">
-        <h3 className="mb-3 text-sm font-bold">发布版本</h3>
+      <div className="max-h-[80vh] w-[440px] overflow-auto rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl">
+        <h3 className="mb-3 text-base font-bold">发布版本</h3>
 
         <div className="mb-3 max-h-[180px] overflow-auto" data-testid="version-list">
           {versions.length === 0 && (
@@ -137,7 +137,7 @@ export function PublishDialog({
             <button
               disabled={busy || !targetName.trim()}
               onClick={onCreate}
-              className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
               data-testid="create-version-btn"
             >
               创建并打开
@@ -147,7 +147,7 @@ export function PublishDialog({
         </div>
 
         <div className="mt-3 flex justify-end">
-          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
             关闭
           </button>
         </div>
@@ -197,8 +197,8 @@ export function PublishRecordDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" data-testid="publish-record-dialog">
-      <div className="w-[380px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl">
-        <h3 className="mb-3 text-sm font-bold">发布记录 · {target}</h3>
+      <div className="w-[380px] rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl">
+        <h3 className="mb-3 text-base font-bold">发布记录 · {target}</h3>
         <label className="mb-1 block text-[11px] text-[var(--muted)]">发布后的 URL（回填后标记为已发布）</label>
         <input
           value={url}
@@ -216,13 +216,13 @@ export function PublishRecordDialog({
           data-testid="publish-date"
         />
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
             取消
           </button>
           <button
             disabled={busy}
             onClick={onSave}
-            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
             data-testid="publish-record-save"
           >
             保存

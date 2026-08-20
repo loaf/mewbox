@@ -12,7 +12,7 @@ export interface SuggestionPanelProps {
   onClose: () => void;
 }
 
-const btn = "rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-xs hover:border-[var(--cat)]";
+const btn = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
 
 /**
  * 全文润色建议（T12）：全文经 proofread_suggestions 流式收集 → 容错解析 →
@@ -65,7 +65,7 @@ export function ProofreadPanel({ target, body, onApply, onClose }: SuggestionPan
       className="fixed bottom-4 right-4 z-40 flex max-h-[60vh] w-[420px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] shadow-xl"
       data-testid="proofread-panel"
     >
-      <div className="flex items-center gap-2 border-b border-[var(--line)] px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] px-3 py-2 text-[13px]">
         <span className="font-bold">✍ 润色建议</span>
         {stream.status === "streaming" && <span className="text-[var(--muted)]">审阅中…</span>}
         {stream.status === "error" && <span className="text-red-500">{stream.error}</span>}
@@ -94,7 +94,7 @@ export function ProofreadPanel({ target, body, onApply, onClose }: SuggestionPan
       {items !== null && items.length > 0 && pendingIdx().length > 0 && (
         <div className="border-t border-[var(--line)] p-2">
           <button
-            className="rounded-md bg-[var(--cat)] px-3 py-1 text-xs font-semibold text-white"
+            className="rounded-md bg-[var(--cat)] px-3.5 py-1.5 text-[13px] font-semibold text-white"
             onClick={() => void adopt(pendingIdx())}
             data-testid="proofread-adopt-all"
           >

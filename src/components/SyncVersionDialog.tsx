@@ -47,8 +47,8 @@ export function SyncVersionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" data-testid="sync-dialog">
-      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl">
-        <h3 className="mb-1 text-sm font-bold">从文稿同步 → {target} 版</h3>
+      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl">
+        <h3 className="mb-1 text-base font-bold">从文稿同步 → {target} 版</h3>
         <p className="mb-3 text-[11px] text-[var(--muted)]">
           覆盖前会自动把当前版本内容存入版本历史（不会丢失）。
           <span style={{ color: "var(--green)" }}>＋来自文稿</span> / <span style={{ color: "var(--red)" }}>－将被替换</span>
@@ -80,13 +80,13 @@ export function SyncVersionDialog({
           )}
         </div>
         <div className="mt-3 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
+          <button onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-[13px]">
             取消
           </button>
           <button
             disabled={busy || !changed}
             onClick={onConfirm}
-            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
             data-testid="sync-confirm"
           >
             确认同步

@@ -511,7 +511,8 @@ describe("EditorPane", () => {
     fireEvent.click(screen.getByTestId("sel-discard"));
     await waitFor(() => expect(apiMocks.aiDiscardResult).toHaveBeenCalled());
     expect(ta.value).toBe("保持原样");
-    expect(screen.queryByTestId("sel-result")).not.toBeInTheDocument();
+    // discard 异步收尾（留痕 → 清理 UI）：等结果卡消失
+    await waitFor(() => expect(screen.queryByTestId("sel-result")).not.toBeInTheDocument());
   });
 
   test("润色建议：全文 op → 解析建议 → 逐条采纳 = aiApplySuggestions 精确替换", async () => {

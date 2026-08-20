@@ -42,6 +42,8 @@ pub struct SearchHit {
     pub id: String,
     pub path: String,
     pub title: String,
+    /// post | material | publish（M5 全局搜索分组用；旧调用方按 kind 自行忽略）
+    pub kind: String,
 }
 
 /// 链接图边（缓存性质，从磁盘全量重建）：kind ∈ wiki|assoc。
@@ -57,6 +59,10 @@ pub struct LinkRow {
 pub enum Scope {
     Posts,
     Materials,
+    /// 文稿 + 资料（M5 全局搜索，DESIGN §9）
+    All,
+    /// 发布版本（可选并入全局搜索）
+    Publish,
 }
 
 pub struct Index {
@@ -192,23 +198,26 @@ impl Index {
             .map(|t| format!("\"{}\"", t.replace('"', " ")))
             .collect::<Vec<_>>()
             .join(" OR ");
-        let kind = match scope {
-            Scope::Posts => "post",
-            Scope::Materials => "material",
+        let kind_pred = match scope {
+            Scope::Posts => "f.kind = 'post'",
+            Scope::Materials => "f.kind = 'material'",
+            Scope::Publish => "f.kind = 'publish'",
+            Scope::All => "f.kind IN ('post', 'material')",
         };
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare(&format!(
             "WITH hits AS (SELECT rowid, rank FROM files_fts WHERE files_fts MATCH ?1)
-             SELECT f.id, f.path, f.title FROM hits h
+             SELECT f.id, f.path, f.title, f.kind FROM hits h
              JOIN fts_map m ON m.fts_rowid = h.rowid
              JOIN files f ON f.id = m.file_id
-             WHERE f.kind = ?2 AND f.deleted_at IS NULL AND f.missing = 0
-             ORDER BY h.rank",
-        )?;
-        let rows = stmt.query_map(params![match_expr, kind], |r| {
+             WHERE {kind_pred} AND f.deleted_at IS NULL AND f.missing = 0
+             ORDER BY h.rank"
+        ))?;
+        let rows = stmt.query_map(params![match_expr], |r| {
             Ok(SearchHit {
                 id: r.get(0)?,
                 path: r.get(1)?,
                 title: r.get(2)?,
+                kind: r.get(3)?,
             })
         })?;
         let mut hits = Vec::new();
@@ -726,5 +735,45 @@ mod tests {
         assert_eq!(hits[0].id, "id-m");
         // OR 分词下 posts 范围不含资料词条
         assert!(idx.search("独一无二", Scope::Posts).unwrap().is_empty());
+    }
+
+    // ───── 全局搜索（M5，DESIGN §9）─────
+
+    #[test]
+    fn search_all_scope_hits_posts_and_materials_but_not_publish() {
+        let idx = Index::open_in_memory().unwrap();
+        let mut m = meta("id-m", "研究笔记", "kb/Inbox/note.md");
+        m.kind = "material".into();
+        idx.upsert_file(&m, "迁移攻略正文").unwrap();
+        idx.upsert_file(&meta("id-p", "迁移计划", "posts/a.md"), "迁移文稿正文").unwrap();
+        let mut v = meta("id-v", "迁移计划公众号版", ".versions/x/publish/wechat.md");
+        v.kind = "publish".into();
+        idx.upsert_file(&v, "迁移版本正文").unwrap();
+
+        let hits = idx.search("迁移", Scope::All).unwrap();
+        let kinds: Vec<&str> = hits.iter().map(|h| h.kind.as_str()).collect();
+        assert!(kinds.contains(&"post"), "{hits:?}");
+        assert!(kinds.contains(&"material"), "{hits:?}");
+        assert!(!kinds.contains(&"publish"), "All 默认不含发布版本: {hits:?}");
+        // 回收站行不出现（All 同样排除软删除）
+        let mut trashed = meta("id-t", "回收站迁移文", "posts/t.md");
+        trashed.deleted_at = Some("2026-08-19T10:00:00".into());
+        idx.upsert_file(&trashed, "迁移回收站正文").unwrap();
+        let hits2 = idx.search("迁移", Scope::All).unwrap();
+        assert!(hits2.iter().all(|h| h.id != "id-t"), "{hits2:?}");
+    }
+
+    #[test]
+    fn search_publish_scope_only_hits_versions() {
+        let idx = Index::open_in_memory().unwrap();
+        idx.upsert_file(&meta("id-p", "迁移计划", "posts/a.md"), "迁移文稿正文").unwrap();
+        let mut v = meta("id-v", "迁移计划公众号版", ".versions/x/publish/wechat.md");
+        v.kind = "publish".into();
+        idx.upsert_file(&v, "迁移版本正文").unwrap();
+        let hits = idx.search("迁移", Scope::Publish).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "id-v");
+        assert_eq!(hits[0].kind, "publish");
+        assert!(idx.search("迁移", Scope::Posts).unwrap().iter().all(|h| h.id != "id-v"));
     }
 }

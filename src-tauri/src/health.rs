@@ -24,10 +24,20 @@ pub struct BrokenLink {
 }
 
 /// 收集所有「内容源」：posts + kb（活文件与回收站）+ 发布版本 + 历史快照的全文。
+/// 回收站文件照算引用（避免误报孤儿附件）；忽略 .git/node_modules（M5 忽略规则）。
 fn collect_all_texts(ws: &Workspace) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for root in ["posts", "kb", ".versions"] {
-        for entry in walkdir::WalkDir::new(ws.root.join(root)) {
+        for entry in walkdir::WalkDir::new(ws.root.join(root))
+            .into_iter()
+            .filter_entry(|e| {
+                e.depth() == 0
+                    || !matches!(
+                        e.file_name().to_string_lossy().as_ref(),
+                        ".git" | "node_modules"
+                    )
+            })
+        {
             let Ok(e) = entry else { continue };
             if !e.file_type().is_file() {
                 continue;

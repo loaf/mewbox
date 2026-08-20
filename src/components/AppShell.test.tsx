@@ -29,6 +29,15 @@ const aiMocks = vi.hoisted(() => ({
   aiRunOp: vi.fn().mockResolvedValue(undefined),
 }));
 
+const exportMdMock = vi.fn();
+const searchAllMock = vi.fn().mockResolvedValue([]);
+
+// M5：目录导出走系统目录选择对话框；全局搜索覆盖层
+const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: (...a: unknown[]) => dialogMocks.open(...a),
+}));
+
 vi.mock("../lib/api", () => ({
   api: {
     listPosts: (...a: unknown[]) => listPostsMock(...a),
@@ -41,6 +50,8 @@ vi.mock("../lib/api", () => ({
     listMaterialTrash: (...a: unknown[]) => listMaterialTrashMock(...a),
     assocTargets: (...a: unknown[]) => assocTargetsMock(...a),
     listKbDirs: (...a: unknown[]) => listKbDirsMock(...a),
+    exportMd: (...a: unknown[]) => exportMdMock(...a),
+    searchAll: (...a: unknown[]) => searchAllMock(...a),
     ...aiMocks,
   },
 }));
@@ -209,5 +220,37 @@ describe("AppShell", () => {
     });
     await waitFor(() => expect(useApp.getState().rightTab).toBe("material-search"));
     expect(screen.getByTestId("material-search-input")).toHaveFocus();
+  });
+
+  // ───── M5：全局搜索入口 / Markdown 导出 ─────
+
+  test("左栏「🔍 全局搜索」入口打开覆盖层", async () => {
+    render(<AppShell />);
+    fireEvent.click(await screen.findByTestId("search-entry"));
+    await waitFor(() => expect(useApp.getState().searchOpen).toBe(true));
+    expect(screen.getByTestId("global-search")).toBeInTheDocument();
+  });
+
+  test("导出按钮：选目录 → exportMd(scope, dir)，提示导出结果", async () => {
+    dialogMocks.open.mockResolvedValue("C:/out/md");
+    exportMdMock.mockResolvedValue({ files: 3, assets: 2 });
+    render(<AppShell />);
+    fireEvent.click(await screen.findByTestId("export-posts"));
+    await waitFor(() =>
+      expect(exportMdMock).toHaveBeenCalledWith("posts", "C:/out/md"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("export-note").textContent).toContain("已导出 3 个文件、2 个附件"),
+    );
+    fireEvent.click(screen.getByTestId("export-kb"));
+    await waitFor(() => expect(exportMdMock).toHaveBeenCalledWith("kb", "C:/out/md"));
+  });
+
+  test("导出对话框取消 → 不调 exportMd", async () => {
+    dialogMocks.open.mockResolvedValue(null);
+    render(<AppShell />);
+    fireEvent.click(await screen.findByTestId("export-posts"));
+    await waitFor(() => expect(dialogMocks.open).toHaveBeenCalled());
+    expect(exportMdMock).not.toHaveBeenCalled();
   });
 });

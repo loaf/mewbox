@@ -40,6 +40,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   overflow: hidden;
+  /* M5 UI 大修：基础正文字号 14px（对齐 prototype 视觉基调） */
+  font-size: 14px;
 }
 
 a {
@@ -49,7 +51,7 @@ a {
 
 .muted {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 ::-webkit-scrollbar {

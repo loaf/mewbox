@@ -4,7 +4,7 @@ import { parseIssues, type Issue } from "../lib/jsonTolerant";
 import { newCallId, useAIStream } from "../lib/useAIStream";
 import type { SuggestionPanelProps } from "./ProofreadPanel";
 
-const btn = "rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-xs hover:border-[var(--cat)]";
+const btn = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
 
 /** 定位：按定位片段在正文中近似找行号，滚动编辑器 textarea */
 function scrollToLocation(body: string, location: string) {
@@ -72,13 +72,13 @@ export function CheckErrorsPanel({ target, body, onApply, onClose }: SuggestionP
       className="fixed bottom-4 right-4 z-40 flex max-h-[60vh] w-[420px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] shadow-xl"
       data-testid="checkerrors-panel"
     >
-      <div className="flex items-center gap-2 border-b border-[var(--line)] px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] px-3 py-2 text-[13px]">
         <span className="font-bold">🔎 查错</span>
         {stream.status === "streaming" && <span className="text-[var(--muted)]">检查中…</span>}
         {stream.status === "error" && <span className="text-red-500">{stream.error}</span>}
         <button className="ml-auto text-[var(--muted)]" onClick={close} data-testid="checkerrors-close">✕</button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-2 text-xs">
+      <div className="min-h-0 flex-1 overflow-auto p-3 text-[13px]">
         {items === null && stream.status !== "error" && (
           <pre className="whitespace-pre-wrap text-[var(--muted)]" data-testid="checkerrors-streaming">{stream.text || "…"}</pre>
         )}
@@ -103,7 +103,7 @@ export function CheckErrorsPanel({ target, body, onApply, onClose }: SuggestionP
       {items !== null && items.length > 0 && pendingIdx().length > 0 && (
         <div className="border-t border-[var(--line)] p-2">
           <button
-            className="rounded-md bg-[var(--cat)] px-3 py-1 text-xs font-semibold text-white"
+            className="rounded-md bg-[var(--cat)] px-3.5 py-1.5 text-[13px] font-semibold text-white"
             onClick={() => void adopt(pendingIdx())}
             data-testid="issue-adopt-all"
           >

@@ -54,6 +54,8 @@ interface AppStore {
   assocPicker: { kind: AssocPickerKind } | null;
   /** M4：AI 设置弹窗 */
   settingsOpen: boolean;
+  /** M5：全局搜索覆盖层 */
+  searchOpen: boolean;
   /** M4：AI 工作台上下文（会话级简单状态） */
   aiContext: AIContextState;
   /** EditorPane 注册的强制保存钩子（切换文稿前调用，防止丢字） */
@@ -78,6 +80,7 @@ interface AppStore {
   openAssocPicker(kind: AssocPickerKind): void;
   closeAssocPicker(): void;
   setSettingsOpen(open: boolean): void;
+  setSearchOpen(open: boolean): void;
   setAIContext(ctx: AIContextState): void;
   reloadPost(): Promise<void>;
 }
@@ -102,6 +105,7 @@ export const useApp = create<AppStore>((set, get) => ({
   trashOpen: false,
   assocPicker: null,
   settingsOpen: false,
+  searchOpen: false,
   aiContext: { entries: [], includeAttachmentText: false },
   flushFn: null,
 
@@ -213,6 +217,7 @@ export const useApp = create<AppStore>((set, get) => ({
   openAssocPicker: (kind) => set({ assocPicker: { kind } }),
   closeAssocPicker: () => set({ assocPicker: null }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setSearchOpen: (searchOpen) => set({ searchOpen }),
   setAIContext: (aiContext) => set({ aiContext }),
 
   reloadPost: async () => {

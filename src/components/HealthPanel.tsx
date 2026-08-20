@@ -74,7 +74,7 @@ export function HealthPanel({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-[460px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-xl"
+        className="flex max-h-[80vh] w-[460px] flex-col rounded-xl border border-[var(--line)] bg-[var(--card)] p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         data-testid="health-dialog"
       >
@@ -83,7 +83,7 @@ export function HealthPanel({ open, onClose }: { open: boolean; onClose: () => v
           <button
             onClick={() => void run()}
             disabled={busy}
-            className="rounded-md border border-[var(--line)] bg-white px-2 py-0.5 text-[11px] disabled:opacity-50"
+            className="rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[12px] disabled:opacity-50"
             data-testid="health-refresh"
           >
             重新检查
@@ -126,7 +126,7 @@ export function HealthPanel({ open, onClose }: { open: boolean; onClose: () => v
               <button
                 onClick={() => void cleanSelected()}
                 disabled={busy || Object.values(checked).every((v) => !v)}
-                className="mt-1 rounded-md border border-[var(--red)] bg-white px-2 py-0.5 text-[11px] text-[var(--red)] disabled:opacity-40"
+                className="mt-1 rounded-md border border-[var(--red)] bg-white px-3 py-1 text-[12px] text-[var(--red)] disabled:opacity-40"
                 data-testid="health-clean"
               >
                 清理选中…

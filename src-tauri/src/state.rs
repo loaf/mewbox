@@ -31,6 +31,8 @@ pub enum AppError {
     Material(#[from] crate::materials::MaterialError),
     #[error("配置: {0}")]
     Config(#[from] crate::config::ConfigError),
+    #[error("导出: {0}")]
+    Export(#[from] crate::export::ExportError),
     #[error("虚拟目录: {0}")]
     VFolder(#[from] vfolder::VFolderError),
     #[error("AI: {0}")]
@@ -533,6 +535,18 @@ impl AppState {
 
     pub fn search_posts(&self, query: &str) -> AppResult<Vec<SearchHit>> {
         self.with_idx(|idx| Ok(idx.search(query, Scope::Posts)?))
+    }
+
+    /// 全局搜索（M5，DESIGN §9）：默认文稿+资料；include_versions 再并入发布版本行。
+    /// 分组由前端按 hit.kind 完成（文稿/资料/发布版本）。
+    pub fn search_all(&self, query: &str, include_versions: bool) -> AppResult<Vec<SearchHit>> {
+        self.with_idx(|idx| {
+            let mut hits = idx.search(query, Scope::All)?;
+            if include_versions {
+                hits.extend(idx.search(query, Scope::Publish)?);
+            }
+            Ok(hits)
+        })
     }
 
     pub fn scan_refresh(&self) -> AppResult<scan::ScanReport> {
@@ -1487,15 +1501,17 @@ impl AppState {
         Ok(crate::health::check(&self.ws, self)?)
     }
 
-    /// kb 物理目录清单（含空目录；排除 .trash）——树与移动/新建对话框用。
+    /// kb 物理目录清单（含空目录；排除 .trash/.git/node_modules，M5 忽略规则）——树与移动/新建对话框用。
     pub fn list_kb_dirs(&self) -> AppResult<Vec<String>> {
         let mut dirs = Vec::new();
         let kb = self.ws.root.join("kb");
-        for entry in walkdir::WalkDir::new(&kb).min_depth(1).into_iter().flatten() {
+        for entry in walkdir::WalkDir::new(&kb)
+            .min_depth(1)
+            .into_iter()
+            .filter_entry(|e| e.depth() == 0 || !crate::scan::is_ignored_dir(&e.file_name().to_string_lossy()))
+        {
+            let Ok(entry) = entry else { continue };
             if !entry.file_type().is_dir() {
-                continue;
-            }
-            if entry.file_name().to_string_lossy() == ".trash" {
                 continue;
             }
             let rel = entry
@@ -1528,6 +1544,24 @@ impl AppState {
 
     pub fn clean_orphan_assets(&self, fingerprints: &[String]) -> AppResult<usize> {
         Ok(crate::health::clean_orphan_assets(&self.ws, fingerprints)?)
+    }
+
+    // ───── 导出/迁移（M5，DESIGN §12） ─────
+
+    /// Markdown 目录导出（posts 平铺 / kb 树；frontmatter 透传、附件随行）。
+    pub fn export_md(&self, scope: &str, dest_dir: &str) -> AppResult<crate::export::ExportMdReport> {
+        Ok(crate::export::export_md(&self.ws, scope, std::path::Path::new(dest_dir))?)
+    }
+
+    /// 单文稿打包导出（正文 + 引用附件 + 历史 + 发布版本）。
+    pub fn export_post_zip(&self, post_id: &str, dest_path: &str) -> AppResult<()> {
+        let meta = self.meta_by_id(post_id)?;
+        Ok(crate::export::export_post_zip(
+            &self.ws,
+            &meta.path,
+            post_id,
+            std::path::Path::new(dest_path),
+        )?)
     }
 }
 
@@ -1839,6 +1873,33 @@ mod tests {
     }
 
     #[test]
+    fn list_kb_dirs_excludes_ignored_dirs() {
+        let (_d, st) = state();
+        std::fs::create_dir_all(st.ws.root.join("kb/研究/分布式")).unwrap();
+        std::fs::create_dir_all(st.ws.root.join("kb/.git")).unwrap();
+        std::fs::create_dir_all(st.ws.root.join("kb/node_modules/pkg")).unwrap();
+        std::fs::create_dir_all(st.ws.root.join("kb/.trash")).unwrap();
+        let dirs = st.list_kb_dirs().unwrap();
+        assert_eq!(
+            dirs,
+            vec!["kb/Inbox".to_string(), "kb/研究".to_string(), "kb/研究/分布式".to_string()],
+            "{dirs:?}"
+        );
+    }
+
+    #[test]
+    fn health_ignores_git_dir_as_reference_source() {
+        let (_d, st) = state();
+        // 附件只被 kb/.git/ 里的文件引用 → .git 不算内容源 → 该附件仍算孤儿
+        let (_, name) = assets::save_asset(&st.ws, b"git-only-ref", "png").unwrap();
+        let git_md = st.ws.root.join("kb/.git/notes.md");
+        std::fs::create_dir_all(git_md.parent().unwrap()).unwrap();
+        std::fs::write(&git_md, format!("引用 ![](_assets/{name})")).unwrap();
+        let h = st.health_check().unwrap();
+        assert_eq!(h.orphan_assets.len(), 1, "{:?}", h.orphan_assets);
+    }
+
+    #[test]
     fn material_trash_and_health_basics() {
         let (_d, st) = state();
         let a = st.create_post("甲", None).unwrap();
@@ -1964,5 +2025,34 @@ mod tests {
             .unwrap();
         assert!(rel.starts_with("../../../_assets/"), "{rel}");
         assert!(rel.ends_with(".png"), "{rel}");
+    }
+
+    // ───── 全局搜索（M5，DESIGN §9）─────
+
+    #[test]
+    fn search_all_groups_and_optional_versions() {
+        let (_d, st) = state();
+        let p = st.create_post("迁移计划", None).unwrap();
+        st.save_post(&p.id, "工作区迁移步骤").unwrap();
+        let m = st.create_material("迁移研究笔记", "研究").unwrap();
+        st.save_material(&m.id, "迁移相关资料").unwrap();
+        st.create_publish_version(&p.id, "wechat", None, Some("公众号迁移版".into()))
+            .unwrap();
+
+        // 默认：文稿+资料，不含发布版本
+        let hits = st.search_all("迁移", false).unwrap();
+        let kinds: Vec<&str> = hits.iter().map(|h| h.kind.as_str()).collect();
+        assert!(kinds.contains(&"post"), "{hits:?}");
+        assert!(kinds.contains(&"material"), "{hits:?}");
+        assert!(!kinds.contains(&"publish"), "{hits:?}");
+        // 命中行携带 id 供前端跳转
+        assert!(hits.iter().any(|h| h.id == p.id));
+        assert!(hits.iter().any(|h| h.id == m.id));
+
+        // include_versions：并入发布版本行（路径形如 .versions/{base}/publish/{target}.md）
+        let hits2 = st.search_all("迁移", true).unwrap();
+        let v = hits2.iter().find(|h| h.kind == "publish").unwrap();
+        assert!(v.path.starts_with(".versions/"), "{}", v.path);
+        assert!(v.path.ends_with("publish/wechat.md"), "{}", v.path);
     }
 }
