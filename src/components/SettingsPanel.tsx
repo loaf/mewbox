@@ -28,7 +28,10 @@ const OP_LABELS: [string, string][] = [
 
 const PROVIDER_TYPES = ["openai", "anthropic", "ollama"] as const;
 
-type Tab = "model" | "routes" | "budget" | "usage";
+type Tab = "model" | "routes" | "usage";
+
+/** 预算功能按用户裁定移除（2026-08-20）：后端保留兼容，UI 不再暴露单价/限额，只记 token 与时间 */
+const NO_BUDGET: AiBudgetConfig = { dailyCents: 0, monthlyCents: 0, paused: false };
 
 function emptyProvider(): AiProviderConfig {
   return { id: "", type: "openai", baseUrl: "", model: "", maxContext: null, pricePer1kInCents: null, pricePer1kOutCents: null };
@@ -180,7 +183,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const [providers, setProviders] = useState<AiProviderConfig[]>([]);
   const [routes, setRoutes] = useState<Record<string, string>>({});
   const [fallbacks, setFallbacks] = useState<Record<string, string>>({});
-  const [budget, setBudget] = useState<AiBudgetConfig>({ dailyCents: 0, monthlyCents: 0, paused: false });
   const [hasKey, setHasKey] = useState<Record<string, boolean>>({});
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [usageMonth, setUsageMonth] = useState(false);
@@ -191,7 +193,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     setProviders(cfg.providers.map((p) => ({ ...p })));
     setRoutes({ ...cfg.routes });
     setFallbacks({ ...cfg.fallbacks });
-    setBudget({ ...cfg.budget });
     const keys: Record<string, boolean> = {};
     for (const p of cfg.providers) keys[p.id] = await api.aiHasKey(p.id).catch(() => false);
     setHasKey(keys);
@@ -204,7 +205,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   }, [open, refresh]);
 
   useEffect(() => {
-    if (!open || (tab !== "usage" && tab !== "budget")) return;
+    if (!open || tab !== "usage") return;
     void api.aiUsage(usageMonth).then(setUsage).catch(() => setUsage([]));
   }, [open, tab, usageMonth]);
 
@@ -221,7 +222,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     await refresh();
   };
 
-  const usageCents = usage.reduce((s, r) => s + r.cents, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" data-testid="settings-overlay" onClick={close}>
@@ -237,7 +237,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               [
                 ["model", "模型"],
                 ["routes", "路由"],
-                ["budget", "预算"],
                 ["usage", "用量"],
               ] as const
             ).map(([t, label]) => (
@@ -284,6 +283,37 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
           {tab === "routes" && (
             <div data-testid="settings-routes-tab">
+              <div className="mb-3 rounded-lg bg-[var(--cream)] p-3 text-[11px] leading-5 text-[var(--muted)]" data-testid="routes-help">
+                <b>路由</b>：每类 AI 操作用哪个 provider（和可选的模型覆盖）。留空＝该操作未配置，调用时会报「无路由」。
+                <br />
+                <b>Fallback 链</b>：主 provider 失败（连接/鉴权/限流，且尚未输出任何内容）时依次尝试的备选，格式
+                <code className="rounded bg-white px-1">provider</code> 或
+                <code className="rounded bg-white px-1">provider:模型</code>，逗号分隔。例：
+                <code className="rounded bg-white px-1">deepseek,ollama:qwen3</code>——deepseek 挂了先用本地 ollama 的 qwen3。
+                <br />
+                <b>附件描述</b>需视觉模型（云多模态或本地视觉模型），路由到不具备视觉能力的模型会失败。
+              </div>
+              <div className="mb-2 flex items-center gap-2">
+                <button
+                  className="rounded-md border border-[var(--line)] bg-white px-2 py-1 text-xs"
+                  onClick={() => {
+                    // 一键默认：所有操作 → 首个云端 provider（无云端则 ollama）
+                    const primary =
+                      providers.find((p) => p.type !== "ollama") ?? providers[0];
+                    if (!primary) {
+                      window.alert("请先在「模型」页签添加 provider");
+                      return;
+                    }
+                    const next: Record<string, string> = {};
+                    for (const [op] of OP_LABELS) next[op] = primary.id;
+                    setRoutes(next);
+                  }}
+                  data-testid="routes-default"
+                >
+                  一键默认（全部操作 → 首个 provider）
+                </button>
+                <span className="text-[10px] text-[var(--muted)]">生成后仍可逐行调整，记得点「保存路由」</span>
+              </div>
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-[11px] text-[var(--muted)]">
@@ -340,42 +370,10 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               </table>
               <button
                 className="mt-3 rounded-md bg-[var(--cat)] px-3 py-1 text-xs font-semibold text-white"
-                onClick={() => void saveConfig(routes, fallbacks, budget)}
+                onClick={() => void saveConfig(routes, fallbacks, NO_BUDGET)}
                 data-testid="routes-save"
               >
                 保存路由
-              </button>
-            </div>
-          )}
-
-          {tab === "budget" && (
-            <div data-testid="settings-budget-tab">
-              <div className="grid grid-cols-3 gap-3">
-                <label className="text-[11px] text-[var(--muted)]">
-                  日预算（美分，0=不限）
-                  <input className={inputCls} inputMode="numeric" value={budget.dailyCents} onChange={(e) => setBudget({ ...budget, dailyCents: num(e.target.value) ?? 0 })} data-testid="budget-daily" />
-                </label>
-                <label className="text-[11px] text-[var(--muted)]">
-                  月预算（美分，0=不限）
-                  <input className={inputCls} inputMode="numeric" value={budget.monthlyCents} onChange={(e) => setBudget({ ...budget, monthlyCents: num(e.target.value) ?? 0 })} data-testid="budget-monthly" />
-                </label>
-                <label className="flex items-end gap-1 pb-1 text-[11px]">
-                  <input type="checkbox" checked={budget.paused} onChange={(e) => setBudget({ ...budget, paused: e.target.checked })} data-testid="budget-paused" />
-                  暂停 AI（所有操作直接拒绝）
-                </label>
-              </div>
-              <div className="mt-2 text-[11px] text-[var(--muted)]" data-testid="budget-current">
-                当前用量：{usageMonth ? "本月" : "今日"} {usageCents} 美分
-                <label className="ml-2">
-                  <input type="checkbox" checked={usageMonth} onChange={(e) => setUsageMonth(e.target.checked)} /> 按月
-                </label>
-              </div>
-              <button
-                className="mt-3 rounded-md bg-[var(--cat)] px-3 py-1 text-xs font-semibold text-white"
-                onClick={() => void saveConfig(routes, fallbacks, budget)}
-                data-testid="budget-save"
-              >
-                保存预算
               </button>
             </div>
           )}
@@ -405,13 +403,12 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                     <th className="py-1">操作</th>
                     <th className="py-1">模型</th>
                     <th className="py-1">入/出 tokens</th>
-                    <th className="py-1">美分</th>
                     <th className="py-1">次数</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usage.length === 0 && (
-                    <tr><td colSpan={6} className="py-2 text-center text-[var(--muted)]">暂无用量记录</td></tr>
+                    <tr><td colSpan={5} className="py-2 text-center text-[var(--muted)]">暂无用量记录</td></tr>
                   )}
                   {usage.map((r, i) => (
                     <tr key={i} className="border-t border-[var(--line)]" data-testid="usage-row">
@@ -419,7 +416,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       <td className="py-1">{r.op}</td>
                       <td className="py-1">{r.model}</td>
                       <td className="py-1">{r.tokensIn} / {r.tokensOut}</td>
-                      <td className="py-1">{r.cents}</td>
                       <td className="py-1">{r.calls}</td>
                     </tr>
                   ))}

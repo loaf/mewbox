@@ -43,7 +43,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tokio-stream = "0.1"
 futures-util = "0.3"
-keyring = "3"
+keyring = { version = "3", features = ["windows-native"] }
 pdf-extract = "0.7"
 base64 = "0.22"
 

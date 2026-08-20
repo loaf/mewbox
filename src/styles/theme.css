@@ -60,3 +60,44 @@ a {
   background: var(--line);
   border-radius: 99px;
 }
+
+/* ═══ 编辑器（@uiw/react-md-editor）：写作区白底、可见插入符与文本光标 ═══ */
+.w-md-editor {
+  background: var(--card) !important;
+  color: var(--ink);
+  box-shadow: none !important;
+  --md-editor-bg: var(--card);
+}
+.w-md-editor-toolbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 10px;
+  li > button {
+    font-size: 16px !important;
+    padding: 4px 6px;
+  }
+}
+.w-md-editor-content {
+  background: var(--card);
+}
+.w-md-editor-text-pre > code,
+.w-md-editor-text-input,
+.w-md-editor-text textarea {
+  background: #ffffff !important;
+  color: #2f2b26 !important;
+  caret-color: #4a453f !important;
+  cursor: text !important;
+  font-family: var(--font);
+  font-size: 15px !important;
+  line-height: 1.9 !important;
+}
+.w-md-editor-text-input:focus,
+.w-md-editor-text textarea:focus {
+  outline: none;
+}
+.wmde-markdown {
+  background: var(--card) !important;
+  color: #2f2b26;
+  font-size: 15px;
+  line-height: 1.9;
+}

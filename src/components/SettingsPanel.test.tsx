@@ -95,11 +95,12 @@ describe("SettingsPanel", () => {
     );
   });
 
-  test("路由页签：op→provider + 模型覆盖 + fallback 链 → 保存走 aiSaveAiConfig", async () => {
+  test("路由页签：op→provider + 模型覆盖 + fallback 链 + 一键默认 → 保存走 aiSaveAiConfig（预算已按用户裁定移除）", async () => {
     await mount();
     fireEvent.click(screen.getByTestId("settings-tab-routes"));
     const row = await screen.findByTestId("route-row-summarize");
     expect(row).toBeInTheDocument();
+    expect(screen.getByTestId("routes-help").textContent).toContain("Fallback");
     // rewrite 路由解析为 provider=local + 模型覆盖 qwen2
     const rewriteRow = screen.getByTestId("route-row-rewrite");
     const modelInput = rewriteRow.querySelectorAll("input")[0] as HTMLInputElement;
@@ -113,19 +114,14 @@ describe("SettingsPanel", () => {
     expect(routes.summarize).toBe("cloud");
     expect(routes.rewrite).toBe("local:qwen2");
     expect(fallbacks.summarize).toBe("local,cloud:gpt-y");
-    expect(budget).toEqual({ dailyCents: 100, monthlyCents: 3000, paused: false });
-  });
-
-  test("预算页签：当前用量 + 暂停开关 → 保存", async () => {
-    apiMocks.aiUsage.mockResolvedValue([{ periodKey: "2026-08-19", op: "summarize", model: "gpt-x", provider: "cloud", tokensIn: 100, tokensOut: 50, cents: 12, calls: 2 }]);
-    await mount();
-    fireEvent.click(screen.getByTestId("settings-tab-budget"));
-    await waitFor(() => expect(screen.getByTestId("budget-current").textContent).toContain("12"));
-    fireEvent.click(screen.getByTestId("budget-paused"));
-    fireEvent.click(screen.getByTestId("budget-save"));
-    await waitFor(() => expect(apiMocks.aiSaveAiConfig).toHaveBeenCalled());
-    const budget = apiMocks.aiSaveAiConfig.mock.calls[0][2];
-    expect(budget.paused).toBe(true);
+    // 预算页签已移除：保存时固定传零预算
+    expect(budget).toEqual({ dailyCents: 0, monthlyCents: 0, paused: false });
+    // 一键默认：全部操作 → 首个云端 provider
+    fireEvent.click(screen.getByTestId("routes-default"));
+    fireEvent.click(screen.getByTestId("routes-save"));
+    await waitFor(() =>
+      expect(apiMocks.aiSaveAiConfig.mock.calls[1][0].summarize).toBe("cloud"),
+    );
   });
 
   test("用量页签：表格渲染 + 清空留痕（confirm）", async () => {

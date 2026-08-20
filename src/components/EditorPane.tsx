@@ -457,7 +457,7 @@ export function EditorPane() {
           onChange={(v) => setBody(v ?? "")}
           preview={viewMode === "edit" ? "edit" : viewMode === "live" ? "live" : "preview"}
           height="100%"
-          style={{ background: "var(--bg)" }}
+          style={{ background: "var(--card)" }}
           textareaProps={
             {
               onPaste: onPaste,
