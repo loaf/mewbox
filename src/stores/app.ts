@@ -30,6 +30,45 @@ export interface AIContextState {
   includeAttachmentText: boolean;
 }
 
+/** 界面偏好（侧栏显隐 / 编辑器字号缩放）localStorage 持久化 */
+const UI_PREFS_KEY = "mewbox:ui-prefs";
+
+interface UiPrefs {
+  leftOpen: boolean;
+  rightOpen: boolean;
+  editorZoom: number;
+}
+
+function loadUiPrefs(): UiPrefs {
+  const fallback: UiPrefs = { leftOpen: true, rightOpen: true, editorZoom: 1 };
+  try {
+    const raw = localStorage.getItem(UI_PREFS_KEY);
+    if (!raw) return fallback;
+    const p = JSON.parse(raw) as Partial<UiPrefs>;
+    return {
+      leftOpen: p.leftOpen !== false,
+      rightOpen: p.rightOpen !== false,
+      editorZoom: typeof p.editorZoom === "number" && p.editorZoom > 0 ? p.editorZoom : 1,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveUiPrefs(p: UiPrefs) {
+  try {
+    localStorage.setItem(UI_PREFS_KEY, JSON.stringify(p));
+  } catch {
+    /* jsdom / 隐私模式下忽略 */
+  }
+}
+
+export const ZOOM_MIN = 0.7;
+export const ZOOM_MAX = 2;
+export const ZOOM_STEP = 0.1;
+
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+
 interface AppStore {
   loading: boolean;
   tree: TreeNode[];
@@ -60,6 +99,11 @@ interface AppStore {
   aiContext: AIContextState;
   /** EditorPane 注册的强制保存钩子（切换文稿前调用，防止丢字） */
   flushFn: (() => Promise<void>) | null;
+  /** 左栏 / 右栏显隐（持久化） */
+  leftOpen: boolean;
+  rightOpen: boolean;
+  /** 编辑器字号缩放倍率（1 = 100%，持久化） */
+  editorZoom: number;
 
   load(): Promise<void>;
   select(id: string | null): Promise<void>;
@@ -83,6 +127,11 @@ interface AppStore {
   setSearchOpen(open: boolean): void;
   setAIContext(ctx: AIContextState): void;
   reloadPost(): Promise<void>;
+  toggleLeft(): void;
+  toggleRight(): void;
+  setRightOpen(open: boolean): void;
+  zoomEditor(delta: number): void;
+  resetEditorZoom(): void;
 }
 
 export const useApp = create<AppStore>((set, get) => ({
@@ -108,6 +157,7 @@ export const useApp = create<AppStore>((set, get) => ({
   searchOpen: false,
   aiContext: { entries: [], includeAttachmentText: false },
   flushFn: null,
+  ...loadUiPrefs(),
 
   load: async () => {
     const payload = await api.listPosts();
@@ -225,5 +275,29 @@ export const useApp = create<AppStore>((set, get) => ({
     if (!id) return;
     const selected = await api.readPost(id);
     set({ selected });
+  },
+
+  toggleLeft: () => {
+    const leftOpen = !get().leftOpen;
+    set({ leftOpen });
+    saveUiPrefs({ leftOpen, rightOpen: get().rightOpen, editorZoom: get().editorZoom });
+  },
+  toggleRight: () => {
+    const rightOpen = !get().rightOpen;
+    set({ rightOpen });
+    saveUiPrefs({ leftOpen: get().leftOpen, rightOpen, editorZoom: get().editorZoom });
+  },
+  setRightOpen: (rightOpen) => {
+    set({ rightOpen });
+    saveUiPrefs({ leftOpen: get().leftOpen, rightOpen, editorZoom: get().editorZoom });
+  },
+  zoomEditor: (delta) => {
+    const editorZoom = clampZoom(get().editorZoom + delta);
+    set({ editorZoom });
+    saveUiPrefs({ leftOpen: get().leftOpen, rightOpen: get().rightOpen, editorZoom });
+  },
+  resetEditorZoom: () => {
+    set({ editorZoom: 1 });
+    saveUiPrefs({ leftOpen: get().leftOpen, rightOpen: get().rightOpen, editorZoom: 1 });
   },
 }));

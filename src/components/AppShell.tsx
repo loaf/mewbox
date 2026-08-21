@@ -35,17 +35,17 @@ function ExportButtons() {
   };
 
   return (
-    <div className="border-t border-dashed border-[var(--line)] px-4 py-2">
+    <div className="border-t border-dashed border-[var(--line)] px-4 py-3">
       <button
         onClick={() => void run("posts")}
-        className="w-full py-1.5 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+        className="w-full py-2 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
         data-testid="export-posts"
       >
         📤 导出文稿 Markdown…
       </button>
       <button
         onClick={() => void run("kb")}
-        className="w-full py-1.5 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+        className="w-full py-2 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
         data-testid="export-kb"
       >
         📤 导出知识库 Markdown…
@@ -65,33 +65,42 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const setTrashOpen = useApp((s) => s.setTrashOpen);
   const setSettingsOpen = useApp((s) => s.setSettingsOpen);
   const setSearchOpen = useApp((s) => s.setSearchOpen);
+  const toggleLeft = useApp((s) => s.toggleLeft);
   const trashCount = useApp((s) => s.trash.length);
   const [healthOpen, setHealthOpen] = useState(false);
 
   return (
     <aside className="flex w-[252px] flex-none flex-col overflow-auto border-r border-[var(--line)] bg-[var(--card)]">
-      <div className="px-4 pt-4 pb-3">
-        <span className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--cat)] px-3 py-2 text-sm font-bold text-white">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <span className="inline-flex items-center gap-2 rounded-md bg-[var(--cat)] px-4 py-2.5 text-sm font-bold text-white">
           🐾 喵盒
         </span>
+        <button
+          onClick={toggleLeft}
+          className="px-1.5 py-1 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          title="隐藏左栏（Ctrl+B）"
+          data-testid="collapse-left"
+        >
+          «
+        </button>
       </div>
 
       <PostTree onNewPost={onCreate} />
 
       <KbTree />
 
-      <section className="border-t border-[var(--line)] px-4 py-4" aria-label="全局搜索">
+      <section className="border-t border-[var(--line)] px-4 py-5" aria-label="全局搜索">
         <button
           onClick={() => setSearchOpen(true)}
-          className="flex w-full items-center justify-between rounded-[9px] bg-[var(--cream)] px-3 py-2.5 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="flex w-full items-center justify-between rounded-md bg-[var(--cream)] px-4 py-3 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="search-entry"
         >
           <span>🔍 全局搜索</span>
-          <span className="rounded border border-[var(--line)] bg-white px-1.5 py-0.5 text-[10px]">Ctrl+Shift+F</span>
+          <span className="rounded border border-[var(--line)] bg-white px-2 py-1 text-[11px]">Ctrl+Shift+F</span>
         </button>
       </section>
 
-      <div className="mt-auto border-t border-dashed border-[var(--line)]">
+      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-1 pb-3">
         <button
           onClick={() => setSettingsOpen(true)}
           className="w-full px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
@@ -119,6 +128,22 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
 
       <HealthPanel open={healthOpen} onClose={() => setHealthOpen(false)} />
     </aside>
+  );
+}
+
+/** 侧栏收起后的窄条（点击恢复） */
+function SideRail({ side, onExpand }: { side: "left" | "right"; onExpand: () => void }) {
+  return (
+    <button
+      onClick={onExpand}
+      className={`flex w-7 flex-none flex-col items-center border-[var(--line)] bg-[var(--card)] pt-3 text-[13px] text-[var(--muted)] hover:text-[var(--ink)] ${
+        side === "left" ? "border-r" : "border-l"
+      }`}
+      title={side === "left" ? "展开左栏（Ctrl+B）" : "展开右栏（Ctrl+Shift+B）"}
+      data-testid={`expand-${side}`}
+    >
+      {side === "left" ? "»" : "«"}
+    </button>
   );
 }
 
@@ -163,6 +188,11 @@ export function AppShell() {
   const setRightTab = useApp((s) => s.setRightTab);
   const settingsOpen = useApp((s) => s.settingsOpen);
   const setSettingsOpen = useApp((s) => s.setSettingsOpen);
+  const leftOpen = useApp((s) => s.leftOpen);
+  const rightOpen = useApp((s) => s.rightOpen);
+  const toggleLeft = useApp((s) => s.toggleLeft);
+  const toggleRight = useApp((s) => s.toggleRight);
+  const setRightOpen = useApp((s) => s.setRightOpen);
 
   const [creating, setCreating] = useState(false);
   const posts = useApp((s) => s.posts);
@@ -180,13 +210,26 @@ export function AppShell() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        setRightOpen(true);
         setRightTab("material-search");
         window.dispatchEvent(new Event("mewbox:focus-material-search"));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setRightTab]);
+  }, [setRightTab, setRightOpen]);
+
+  // Ctrl/Cmd+B → 左栏显隐；Ctrl/Cmd+Shift+B → 右栏显隐
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "b") return;
+      e.preventDefault();
+      if (e.shiftKey) toggleRight();
+      else toggleLeft();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleLeft, toggleRight]);
 
   const onCreate = () => setCreating(true);
   const onCreateConfirm = async (title: string, folder?: string) => {
@@ -205,42 +248,58 @@ export function AppShell() {
 
   return (
     <div className="flex h-full">
-      <LeftColumn onCreate={onCreate} />
+      {leftOpen ? (
+        <LeftColumn onCreate={onCreate} />
+      ) : (
+        <SideRail side="left" onExpand={toggleLeft} />
+      )}
       <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
         {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
         {hasEditorTarget ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
       </main>
-      <aside className="flex w-[312px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
-        <div className="flex flex-wrap gap-1.5 border-b border-[var(--line)] p-3">
-          {RIGHT_TABS.map(([tab, label]) => (
+      {rightOpen ? (
+        <aside className="flex w-[312px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] px-4 py-3.5">
+            {RIGHT_TABS.map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => setRightTab(tab)}
+                className={`rounded-md px-4 py-2.5 text-[13px] ${
+                  rightTab === tab
+                    ? "bg-[var(--cat)] font-semibold text-white"
+                    : "bg-[var(--cream)] text-[var(--muted)] hover:text-[var(--ink)]"
+                }`}
+                data-testid={`tab-${tab}`}
+              >
+                {label}
+              </button>
+            ))}
             <button
-              key={tab}
-              onClick={() => setRightTab(tab)}
-              className={`rounded-lg px-3 py-1.5 text-[13px] ${
-                rightTab === tab
-                  ? "bg-[var(--cat)] font-semibold text-white"
-                  : "bg-[var(--cream)] text-[var(--muted)] hover:text-[var(--ink)]"
-              }`}
-              data-testid={`tab-${tab}`}
+              onClick={toggleRight}
+              className="ml-auto px-1.5 py-1 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+              title="隐藏右栏（Ctrl+Shift+B）"
+              data-testid="collapse-right"
             >
-              {label}
+              »
             </button>
-          ))}
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col p-3.5" data-testid={`panel-${rightTab}`}>
-          {rightTab === "outline" ? (
-            <OutlinePanel />
-          ) : rightTab === "backlinks" ? (
-            <BacklinksPanel />
-          ) : rightTab === "history" ? (
-            <HistoryPanel />
-          ) : rightTab === "material-search" ? (
-            <MaterialSearchPanel />
-          ) : (
-            <AIWorkbench />
-          )}
-        </div>
-      </aside>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col p-4" data-testid={`panel-${rightTab}`}>
+            {rightTab === "outline" ? (
+              <OutlinePanel />
+            ) : rightTab === "backlinks" ? (
+              <BacklinksPanel />
+            ) : rightTab === "history" ? (
+              <HistoryPanel />
+            ) : rightTab === "material-search" ? (
+              <MaterialSearchPanel />
+            ) : (
+              <AIWorkbench />
+            )}
+          </div>
+        </aside>
+      ) : (
+        <SideRail side="right" onExpand={toggleRight} />
+      )}
 
       <TrashPanel />
 

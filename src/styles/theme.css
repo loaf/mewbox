@@ -92,7 +92,8 @@ a {
   background: #ffffff !important;
   color: #2f2b26;
   font-family: var(--font);
-  font-size: 15px !important;
+  /* 字号走 --editor-zoom（Ctrl+= / Ctrl+- 与右键菜单缩放，EditorPane 挂变量） */
+  font-size: calc(15px * var(--editor-zoom, 1)) !important;
   line-height: 1.9 !important;
 }
 .w-md-editor-text-input,
@@ -102,7 +103,7 @@ a {
   caret-color: #4a453f !important;
   cursor: text !important;
   font-family: var(--font);
-  font-size: 15px !important;
+  font-size: calc(15px * var(--editor-zoom, 1)) !important;
   line-height: 1.9 !important;
   -webkit-text-fill-color: transparent;
 }
@@ -117,6 +118,6 @@ a {
 .wmde-markdown {
   background: var(--card) !important;
   color: #2f2b26;
-  font-size: 15px;
+  font-size: calc(15px * var(--editor-zoom, 1));
   line-height: 1.9;
 }

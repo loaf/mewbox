@@ -84,7 +84,7 @@ export function KbTree() {
     return (
       <div key={path} data-testid={`kb-folder-${path.replace(/\//g, "-")}`}>
         <div
-          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[14px] font-semibold"
+          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-[14px] font-semibold"
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => setCollapsed((c) => ({ ...c, [path]: !c[path] }))}
           onContextMenu={(e) => {
@@ -106,7 +106,7 @@ export function KbTree() {
               <div
                 key={m.id}
                 data-testid="material-item"
-                className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[14px] ${
+                className={`flex cursor-pointer items-center gap-2 rounded-lg py-2 pr-2 text-[14px] ${
                   activeMaterialId === m.id
                     ? "bg-[var(--cat-bg)] font-semibold"
                     : "hover:bg-[var(--cream)]"
@@ -118,8 +118,8 @@ export function KbTree() {
                   setMenu({ x: e.clientX, y: e.clientY, kind: "material", target: m });
                 }}
               >
-                <span className="text-[10px]">📎</span>
-                <span className="truncate">{m.title}</span>
+                <span className="flex-none text-[10px]">📎</span>
+                <span className="min-w-0 flex-1 truncate">{m.title}</span>
               </div>
             ))}
           </div>
@@ -129,20 +129,20 @@ export function KbTree() {
   };
 
   return (
-    <section className="border-t border-[var(--line)] px-3 py-3" aria-label="知识库">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-[13px] font-bold tracking-wide text-[var(--muted)]">📚 知识库</span>
-        <div className="flex gap-1">
+    <section className="border-t border-[var(--line)] px-3 py-5" aria-label="知识库">
+      <div className="mb-3 flex items-center justify-between px-1">
+        <span className="text-[15px] font-bold text-[var(--ink)]">📚 知识库</span>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setNewDialog({ dir: "Inbox" })}
-            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
+            className="px-1 py-1 text-[12px] font-semibold text-[var(--cat)] hover:text-[var(--cat-dk)]"
             data-testid="kb-new-material"
           >
             + 新建
           </button>
           <button
             onClick={() => void onCreateDir("")}
-            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
+            className="px-1 py-1 text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
             data-testid="kb-new-dir-btn"
             title="新建目录（kb 根下）"
           >
@@ -150,7 +150,7 @@ export function KbTree() {
           </button>
           <button
             onClick={() => void onImport()}
-            className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px]"
+            className="px-1 py-1 text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
             data-testid="kb-import"
           >
             导入
@@ -167,7 +167,7 @@ export function KbTree() {
 
       <button
         onClick={() => setTrashOpen(true)}
-        className="mt-2 w-full rounded-md px-2 py-1.5 text-left text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
+        className="mt-3 w-full rounded-md px-2 py-2 text-left text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
         data-testid="kb-trash-entry"
       >
         🗑 资料回收站{materialTrashCount > 0 ? `（${materialTrashCount}）` : ""}
