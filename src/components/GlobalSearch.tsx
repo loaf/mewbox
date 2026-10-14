@@ -38,6 +38,7 @@ export function GlobalSearch() {
   const select = useApp((s) => s.select);
   const selectMaterial = useApp((s) => s.selectMaterial);
   const selectVersion = useApp((s) => s.selectVersion);
+  const openPane2 = useApp((s) => s.openPane2);
 
   const [query, setQuery] = useState("");
   const [includeVersions, setIncludeVersions] = useState(false);
@@ -156,15 +157,29 @@ export function GlobalSearch() {
                     {g.label}（{g.items.length}）
                   </h4>
                   {g.items.map((h) => (
-                    <button
+                    <div
                       key={`${h.kind}-${h.id}`}
                       data-testid={`global-search-hit-${h.id}`}
                       onClick={() => void jump(h)}
-                      className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-[var(--cream)]"
+                      className="flex w-full cursor-pointer items-center rounded-lg px-2 py-1.5 text-left hover:bg-[var(--cream)]"
                     >
-                      <span className="text-sm">{highlightNodes(h.title, tokens)}</span>
-                      <span className="ml-2 text-xs text-[var(--muted)]">{h.path}</span>
-                    </button>
+                      <span className="min-w-0 flex-1 truncate text-sm">{highlightNodes(h.title, tokens)}</span>
+                      <span className="ml-2 flex-none text-xs text-[var(--muted)]">{h.path}</span>
+                      {(h.kind ?? "post") === "post" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSearchOpen(false);
+                            void openPane2(h.id);
+                          }}
+                          className="ml-2 flex-none rounded px-1.5 py-0.5 text-[11px] text-[var(--muted)] hover:bg-white hover:text-[var(--ink)]"
+                          title="在参考栏打开（分栏互参）"
+                          data-testid={`global-search-pane2-${h.id}`}
+                        >
+                          ⫲ 分栏
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </section>
               ),

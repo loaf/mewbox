@@ -104,6 +104,10 @@ interface AppStore {
   rightOpen: boolean;
   /** 编辑器字号缩放倍率（1 = 100%，持久化） */
   editorZoom: number;
+  /** 参考栏（分栏第一步：只读渲染一篇文稿，与主编辑器互相参照） */
+  pane2: PostContent | null;
+  /** 参考栏最近打开的文稿（关闭后 Ctrl+\ 重开用，会话级） */
+  pane2LastId: string | null;
 
   load(): Promise<void>;
   select(id: string | null): Promise<void>;
@@ -132,6 +136,10 @@ interface AppStore {
   setRightOpen(open: boolean): void;
   zoomEditor(delta: number): void;
   resetEditorZoom(): void;
+  openPane2(id: string): Promise<void>;
+  closePane2(): void;
+  togglePane2(): Promise<void>;
+  swapPane2(): Promise<void>;
 }
 
 export const useApp = create<AppStore>((set, get) => ({
@@ -158,6 +166,8 @@ export const useApp = create<AppStore>((set, get) => ({
   aiContext: { entries: [], includeAttachmentText: false },
   flushFn: null,
   ...loadUiPrefs(),
+  pane2: null,
+  pane2LastId: null,
 
   load: async () => {
     const payload = await api.listPosts();
@@ -299,5 +309,34 @@ export const useApp = create<AppStore>((set, get) => ({
   resetEditorZoom: () => {
     set({ editorZoom: 1 });
     saveUiPrefs({ leftOpen: get().leftOpen, rightOpen: get().rightOpen, editorZoom: 1 });
+  },
+
+  // ───── 参考栏（分栏第一步：只读） ─────
+  openPane2: async (id) => {
+    const content = await api.readPost(id);
+    set({ pane2: content, pane2LastId: id });
+  },
+  closePane2: () => {
+    const lastId = get().pane2?.id ?? get().pane2LastId;
+    set({ pane2: null, pane2LastId: lastId });
+  },
+  togglePane2: async () => {
+    const st = get();
+    if (st.pane2) {
+      st.closePane2();
+      return;
+    }
+    // 重开最近一篇；没有历史目标时尝试当前主栏文稿
+    const target = st.pane2LastId ?? (st.view.kind === "post" ? st.selectedId : null);
+    if (target) await get().openPane2(target);
+  },
+  swapPane2: async () => {
+    const st = get();
+    if (!st.pane2) return;
+    const refId = st.pane2.id;
+    const primaryPostId = st.view.kind === "post" ? st.selectedId : null;
+    await st.select(refId); // 主栏切到参考篇（内部会先 flush 主栏）
+    if (primaryPostId && primaryPostId !== refId) await get().openPane2(primaryPostId);
+    else set({ pane2: null });
   },
 }));

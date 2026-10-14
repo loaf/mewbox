@@ -4,7 +4,6 @@ import "@uiw/react-md-editor/markdown-editor.css";
 import { api, WikiHit } from "../lib/api";
 import { useApp, ViewMode } from "../stores/app";
 import {
-  assetContext,
   editorPreviewOptions,
   MarkdownPreview,
   withWikiLinks,
@@ -58,6 +57,7 @@ export function EditorPane() {
   const select = useApp((s) => s.select);
   const selectMaterial = useApp((s) => s.selectMaterial);
   const openAssocPicker = useApp((s) => s.openAssocPicker);
+  const openPane2 = useApp((s) => s.openPane2);
   const editorZoom = useApp((s) => s.editorZoom);
   const zoomEditor = useApp((s) => s.zoomEditor);
   const resetEditorZoom = useApp((s) => s.resetEditorZoom);
@@ -109,15 +109,12 @@ export function EditorPane() {
 
   latestBody.current = body;
 
-  // 贴图/相对资源的解析基准：当前预览文件所在目录（文稿 / 版本 / 资料）
-  useEffect(() => {
-    if (view.kind === "version") {
-      assetContext.baseDir = `.versions/${view.baseId}/publish`;
-    } else if (view.kind === "material" && material?.path) {
-      assetContext.baseDir = material.path.split("/").slice(0, -1).join("/");
-    } else {
-      assetContext.baseDir = selected?.path ? selected.path.split("/").slice(0, -1).join("/") : "posts";
-    }
+  // 贴图/相对资源的解析基准：当前预览文件所在目录（文稿 / 版本 / 资料）。
+  // 分栏后有多个预览实例同时渲染，目录按渲染作用域传给 MarkdownPreview，不再写全局
+  const previewBaseDir = useMemo(() => {
+    if (view.kind === "version") return `.versions/${view.baseId}/publish`;
+    if (view.kind === "material" && material?.path) return material.path.split("/").slice(0, -1).join("/");
+    return selected?.path ? selected.path.split("/").slice(0, -1).join("/") : "posts";
   }, [view, selected?.path, material?.path]);
 
   // 切换目标（文稿/版本/资料）时重置本地态
@@ -265,7 +262,8 @@ export function EditorPane() {
     }
   };
 
-  // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选，悬空给提示（§7.2）
+  // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选，悬空给提示（§7.2）。
+  // Alt+点击：文稿命中 → 开进参考栏（分栏互参），主栏不动
   const onPreviewClick = async (e: React.MouseEvent) => {
     const anchor = (e.target as HTMLElement).closest?.("a[data-wiki]");
     if (!anchor) return;
@@ -274,6 +272,10 @@ export function EditorPane() {
     if (!title) return;
     const r = await api.resolveWiki(title).catch(() => null);
     if (!r) return;
+    if (e.altKey && r.matched?.kind === "post") {
+      void openPane2(r.matched.id);
+      return;
+    }
     const jump = (h: WikiHit) => (h.kind === "post" ? void select(h.id) : void selectMaterial(h.id));
     if (r.matched) jump(r.matched);
     else if (r.candidates.length > 0) setWikiCandidates(r.candidates);
@@ -321,10 +323,10 @@ export function EditorPane() {
   const renderPreview = useCallback(
     (md: string) => (
       <div className="wmde-markdown wmde-markdown-color">
-        <MarkdownPreview>{isVersion ? md : withWikiLinks(md)}</MarkdownPreview>
+        <MarkdownPreview baseDir={previewBaseDir}>{isVersion ? md : withWikiLinks(md)}</MarkdownPreview>
       </div>
     ),
-    [isVersion],
+    [isVersion, previewBaseDir],
   );
   const mdComponents = useMemo(
     () => ({ preview: renderPreview }) as unknown as NonNullable<Parameters<typeof MDEditor>[0]["components"]>,

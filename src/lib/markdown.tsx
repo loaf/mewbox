@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -15,7 +15,10 @@ import "highlight.js/styles/github.css";
 // webview 无法直接读磁盘相对路径（../_assets/… 相对的是页面 origin 而非工作区），
 // 经 convertFileSrc（Tauri assetProtocol，已在 tauri.conf.json 开启）映射本地文件。
 
-/** 预览上下文：工作区根（绝对）与当前文件所在目录（工作区相对）。EditorPane 切换目标时更新。 */
+/** 预览上下文：工作区根（绝对）与当前文件所在目录（工作区相对）。
+ *  root 全局唯一（store.load 设置一次）；baseDir 为单编辑器时代的全局回退值——
+ *  分栏后同一屏会有多个预览实例，目录必须按渲染作用域传入（MarkdownPreview baseDir prop），
+ *  不再由 EditorPane 改写全局。 */
 export const assetContext = { root: "", baseDir: "posts" };
 
 function normalizeRel(path: string): string {
@@ -30,12 +33,14 @@ function normalizeRel(path: string): string {
   return out.join("/");
 }
 
-/** 相对引用 → asset URL；外链/data/锚点原样；根未就绪（测试环境）退化为原样。 */
-export function resolveAssetSrc(src: string): string {
+/** 相对引用 → asset URL；外链/data/锚点原样；根未就绪（测试环境）退化为原样。
+ *  baseDir：该预览所属文件的工作区相对目录（分栏/多预览时按渲染作用域传入），
+ *  省略时回退到全局 assetContext.baseDir（兼容旧调用与测试）。 */
+export function resolveAssetSrc(src: string, baseDir?: string): string {
   if (!src) return src;
   if (/^(https?:|data:|mailto:|#)/i.test(src)) return src;
   if (!assetContext.root) return src;
-  const rel = normalizeRel(`${assetContext.baseDir}/${src}`);
+  const rel = normalizeRel(`${baseDir ?? assetContext.baseDir}/${src}`);
   if (rel.startsWith("..")) return src; // 越出工作区根，交给浏览器原样处理
   const abs = `${assetContext.root}/${rel}`.replace(/\/+/, "/");
   try {
@@ -258,10 +263,20 @@ export const previewComponents = {
   },
 };
 
-/** 测试与预览共享的渲染入口 */
-export function MarkdownPreview({ children }: { children: string }) {
+/** 测试与预览共享的渲染入口。baseDir：本预览所属文件的相对目录（贴图解析基准），
+ *  分栏下多个预览实例各自传入，互不干扰；省略则回退全局 assetContext.baseDir。 */
+export function MarkdownPreview({ children, baseDir }: { children: string; baseDir?: string }) {
+  const components = useMemo(() => {
+    if (baseDir === undefined) return previewComponents;
+    return {
+      ...previewComponents,
+      img: ({ src, alt, title }: { src?: string; alt?: string; title?: string }) => (
+        <img src={src ? resolveAssetSrc(src, baseDir) : src} alt={alt ?? ""} title={title} loading="lazy" />
+      ),
+    };
+  }, [baseDir]);
   return (
-    <Markdown remarkPlugins={previewRemarkPlugins} rehypePlugins={previewRehypePlugins} components={previewComponents}>
+    <Markdown remarkPlugins={previewRemarkPlugins} rehypePlugins={previewRehypePlugins} components={components}>
       {children}
     </Markdown>
   );

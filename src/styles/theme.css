@@ -83,26 +83,33 @@ a {
   background: var(--card);
 }
 /* 编辑区双层结构：文字由下层高亮镜像（pre>code）渲染，上层 textarea 文字必须
-   保持透明且背景透明——白底给镜像层，否则白底盖住镜像 → 白字白底不可见（验收反馈修复） */
+   保持透明且背景透明——白底给镜像层，否则白底盖住镜像 → 白字白底不可见（验收反馈修复）。
+   ⚠ 两层 font/size/line-height 必须逐像素一致，否则选区与可见文字错位：
+   theme.css 先于 markdown-editor.css 加载，同特异性 !important 平局时库样式会把
+   镜像层打回 14px/18px（textarea 却是 15px/1.9）——统一加 .w-md-editor 前缀
+   提高特异性，不再依赖加载顺序。字号走 --editor-zoom（Ctrl+= / Ctrl+-，EditorPane 挂变量） */
 .w-md-editor-text {
   background: #ffffff;
 }
-.w-md-editor-text-pre,
-.w-md-editor-text-pre > code {
-  background: #ffffff !important;
-  color: #2f2b26;
-  font-family: var(--font);
-  /* 字号走 --editor-zoom（Ctrl+= / Ctrl+- 与右键菜单缩放，EditorPane 挂变量） */
+.w-md-editor .w-md-editor-text {
   font-size: calc(15px * var(--editor-zoom, 1)) !important;
   line-height: 1.9 !important;
 }
-.w-md-editor-text-input,
-.w-md-editor-text textarea {
+.w-md-editor .w-md-editor-text-pre,
+.w-md-editor .w-md-editor-text-pre > code {
+  background: #ffffff !important;
+  color: #2f2b26;
+  font-family: var(--font) !important;
+  font-size: calc(15px * var(--editor-zoom, 1)) !important;
+  line-height: 1.9 !important;
+}
+.w-md-editor .w-md-editor-text-input,
+.w-md-editor .w-md-editor-text textarea {
   color: transparent !important;
   background: transparent !important;
   caret-color: #4a453f !important;
   cursor: text !important;
-  font-family: var(--font);
+  font-family: var(--font) !important;
   font-size: calc(15px * var(--editor-zoom, 1)) !important;
   line-height: 1.9 !important;
   -webkit-text-fill-color: transparent;
@@ -120,4 +127,17 @@ a {
   color: #2f2b26;
   font-size: calc(15px * var(--editor-zoom, 1));
   line-height: 1.9;
+}
+
+/* ═══ 分栏模式（split-measure 挂在主编辑器外层）：文字列限宽 ≤720px 居中 ═══
+   编辑器白卡仍充满整栏，只是正文列收窄保持可读性（用户已确认）。
+   限宽内边距必须挂在共享父层 .w-md-editor-text 上：镜像 pre 在文档流里随父层
+   padding 内缩，绝对定位的 textarea 横跨 padding box 但 padding:inherit——两层
+   天然对齐；若分别给两层设 padding，pre 会比 textarea 多吃父层 10px，横向差 20px，
+   换行点错位 → 选区漂移 */
+.split-measure .w-md-editor-text {
+  padding-inline: max(20px, calc((100% - 720px) / 2));
+}
+.split-measure .wmde-markdown {
+  padding-inline: max(20px, calc((100% - 720px) / 2));
 }

@@ -291,6 +291,17 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                 <button
                   className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
                   onClick={() => {
+                    const post = menu.target as PostSummary;
+                    setMenu(null);
+                    void useApp.getState().openPane2(post.id);
+                  }}
+                  data-testid="menu-open-pane2"
+                >
+                  在分栏中打开
+                </button>
+                <button
+                  className="block w-full px-3 py-1.5 text-left hover:bg-[var(--cream)]"
+                  onClick={() => {
                     setRenameTitle({ post: menu.target as PostSummary });
                     setMenu(null);
                   }}

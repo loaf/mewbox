@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../lib/api";
 import { useApp } from "../stores/app";
 import { PostTree } from "./PostTree";
 import { NewPostDialog } from "./NewPostDialog";
 import { EditorPane } from "./EditorPane";
+import { RefPane } from "./RefPane";
 import { OutlinePanel } from "./OutlinePanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { BacklinksPanel } from "./BacklinksPanel";
@@ -193,6 +194,8 @@ export function AppShell() {
   const toggleLeft = useApp((s) => s.toggleLeft);
   const toggleRight = useApp((s) => s.toggleRight);
   const setRightOpen = useApp((s) => s.setRightOpen);
+  const pane2 = useApp((s) => s.pane2);
+  const togglePane2 = useApp((s) => s.togglePane2);
 
   const [creating, setCreating] = useState(false);
   const posts = useApp((s) => s.posts);
@@ -231,6 +234,40 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleLeft, toggleRight]);
 
+  // Ctrl/Cmd+\ → 开关参考栏（重开最近一篇，无历史目标时取主栏当前文稿）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+        e.preventDefault();
+        void togglePane2();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [togglePane2]);
+
+  // 分栏：主区容器与参考栏宽度（百分比，可拖拽）
+  const mainRef = useRef<HTMLElement>(null);
+  const [pane2Pct, setPane2Pct] = useState(42);
+  const startPaneDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = mainRef.current;
+    if (!el) return;
+    const move = (ev: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      const pct = ((r.right - ev.clientX) / r.width) * 100;
+      setPane2Pct(Math.min(70, Math.max(22, pct)));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
   const onCreate = () => setCreating(true);
   const onCreateConfirm = async (title: string, folder?: string) => {
     setCreating(false);
@@ -253,9 +290,32 @@ export function AppShell() {
       ) : (
         <SideRail side="left" onExpand={toggleLeft} />
       )}
-      <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
-        {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属） */}
-        {hasEditorTarget ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
+      <main ref={mainRef} className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
+        {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属）。
+            分栏（方案 B 第一步）：主编辑器 + 只读参考栏，中间可拖拽分隔条 */}
+        {hasEditorTarget ? (
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <div className={`flex min-w-0 flex-1 flex-col ${pane2 ? "split-measure" : ""}`}>
+              <EditorPane />
+            </div>
+            {pane2 && (
+              <>
+                <div
+                  className="w-1.5 flex-none cursor-col-resize bg-[var(--line)] transition-colors hover:bg-[var(--cat-lt)]"
+                  onMouseDown={startPaneDrag}
+                  onDoubleClick={() => setPane2Pct(42)}
+                  title="拖动调整分栏宽度，双击复位"
+                  data-testid="pane-divider"
+                />
+                <div className="min-w-0 flex-none border-l border-[var(--line)]" style={{ width: `${pane2Pct}%` }}>
+                  <RefPane />
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <EmptyState onCreate={onCreate} />
+        )}
       </main>
       {rightOpen ? (
         <aside className="flex w-[312px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
