@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type SearchHit } from "../lib/api";
-import { useApp } from "../stores/app";
+import { useActiveValue, useActiveAction } from "../stores/pane";
 
 const btn = "rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px] hover:border-[var(--cat)]";
 
@@ -13,10 +13,10 @@ export function MaterialSearchPanel() {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const view = useApp((s) => s.view);
-  const selectedId = useApp((s) => s.selectedId);
-  const reloadPost = useApp((s) => s.reloadPost);
-  const reloadMaterial = useApp((s) => s.reloadMaterial);
+  const view = useActiveValue("view");
+  const selectedId = useActiveValue("selectedId");
+  const reloadPost = useActiveAction("reloadPost");
+  const reloadMaterial = useActiveAction("reloadMaterial");
 
   useEffect(() => {
     inputRef.current?.focus();

@@ -4,7 +4,8 @@ export interface Heading {
   slug: string;
 }
 
-function slugify(text: string): string {
+/** 标题 → 锚点 slug；markdown.tsx 的 rehypeHeadingIds 用同一算法保证大纲能跳到 */
+export function slugify(text: string): string {
   return (
     text
       .trim()

@@ -64,6 +64,8 @@ function readPayload(e: { dataTransfer: DtLike }): DragPayload | null {
 export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   const posts = useApp((s) => s.posts);
   const selectedId = useApp((s) => s.selectedId);
+  const selectedId2 = useApp((s) => s.selectedId2);
+  const pane2Open = useApp((s) => s.pane2Open);
   const view = useApp((s) => s.view);
   const versionCounts = useApp((s) => s.versionCounts);
   const select = useApp((s) => s.select);
@@ -158,6 +160,8 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
               // 版本态：左栏高亮母版（版本本身不进列表，DESIGN 决策 8）
               const isBase = view.kind === "version" && view.baseId === ref.id;
               const vCount = versionCounts[ref.id] ?? 0;
+              // 双栏：主栏强高亮，次栏打开的篇目弱标记（浅底 + 空心点）
+              const inPane2 = pane2Open && selectedId2 === ref.id && !(selectedId === ref.id || isBase);
               return (
                 <div
                   key={ref.id}
@@ -165,7 +169,9 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                   className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[13px] ${
                     selectedId === ref.id || isBase
                       ? "bg-[var(--cat-bg)] font-semibold"
-                      : "hover:bg-[var(--cream)]"
+                      : inPane2
+                        ? "bg-[var(--cream)]"
+                        : "hover:bg-[var(--cream)]"
                   }`}
                   style={{ paddingLeft: 20 + depth * 12 }}
                   draggable

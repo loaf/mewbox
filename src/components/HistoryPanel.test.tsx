@@ -18,6 +18,8 @@ const apiMocks = vi.hoisted(() => ({
 const storeState = vi.hoisted(() => ({
   view: { kind: "post" } as { kind: "post" } | { kind: "version"; baseId: string; target: string },
   selectedId: "p1",
+  // stores/pane 的 useActiveValue 按活动栏取主/次栏字段：主栏即本 mock 的裸名字段
+  activePane: "primary" as "primary" | "secondary",
   reloadPost: async () => {},
   reloadVersion: async () => {},
 }));

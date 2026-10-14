@@ -6,6 +6,7 @@ import {
   type ContextEntry,
 } from "../lib/api";
 import { useApp } from "../stores/app";
+import { useActiveValue } from "../stores/pane";
 import { estimateTokens, newCallId, resolveRouteProvider, routeLabel, useAIStream } from "../lib/useAIStream";
 
 const WORKBENCH_OPS: [string, string][] = [
@@ -34,10 +35,10 @@ const btn = "rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[1
 export function AIWorkbench() {
   const posts = useApp((s) => s.posts);
   const materials = useApp((s) => s.materials);
-  const view = useApp((s) => s.view);
-  const version = useApp((s) => s.version);
-  const selected = useApp((s) => s.selected);
-  const material = useApp((s) => s.material);
+  const view = useActiveValue("view");
+  const version = useActiveValue("version");
+  const selected = useActiveValue("selected");
+  const material = useActiveValue("material");
   const load = useApp((s) => s.load);
   const aiContext = useApp((s) => s.aiContext);
   const setAIContext = useApp((s) => s.setAIContext);

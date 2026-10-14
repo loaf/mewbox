@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, AssocEntry, PostSummary, MaterialSummary } from "../lib/api";
-import { useApp } from "../stores/app";
+import { useApp, PaneId, paneSlice } from "../stores/app";
+import { usePaneValue, usePaneAction, paneOps } from "../stores/pane";
 
 /** 版本条目 target（相对路径）→ (baseId, target)；形如 ../.versions/{base}/publish/{target}.md */
 export function parseVersionTarget(target: string): { baseId: string; target: string } | null {
@@ -66,8 +67,8 @@ function Section({
   );
 }
 
-/** 关联多选器（posts/materials 二选一） */
-function AssocPicker({ kind, currentId }: { kind: "posts" | "materials"; currentId: string }) {
+/** 关联多选器（posts/materials 二选一）；pane = 发起关联的栏（确认后刷新该栏） */
+function AssocPicker({ kind, currentId, pane }: { kind: "posts" | "materials"; currentId: string; pane: PaneId }) {
   const posts = useApp((s) => s.posts);
   const materials = useApp((s) => s.materials);
   const closeAssocPicker = useApp((s) => s.closeAssocPicker);
@@ -83,7 +84,7 @@ function AssocPicker({ kind, currentId }: { kind: "posts" | "materials"; current
     for (const item of list.filter((i) => checked[i.id] && i.id !== currentId)) {
       await api.updateAssoc(currentId, item.id, true);
     }
-    await reloadAll();
+    await reloadAll(pane);
   };
 
   return (
@@ -129,25 +130,27 @@ function AssocPicker({ kind, currentId }: { kind: "posts" | "materials"; current
   );
 }
 
-/** 关联命令后统一刷新：列表 + 当前内容 + 目标反查 */
-async function reloadAll() {
+/** 关联命令后统一刷新：列表 + 当前内容 + 目标反查（刷新发起栏的目标） */
+async function reloadAll(pane: PaneId) {
   const st = useApp.getState();
   await st.load();
   const now = useApp.getState();
-  if (now.view.kind === "material") await now.reloadMaterial();
-  else if (now.selectedId) await now.reloadPost();
+  const sl = paneSlice(now, pane);
+  if (sl.view.kind === "material") await paneOps(now, pane).reloadMaterial();
+  else if (sl.selectedId) await paneOps(now, pane).reloadPost();
 }
 
 /** 编辑器底部的关联块只读渲染（§7.1）：三区 + 点击跳转 + × 解除 + 多选关联器 */
-export function AssocPanel() {
-  const view = useApp((s) => s.view);
-  const selected = useApp((s) => s.selected);
-  const material = useApp((s) => s.material);
-  const select = useApp((s) => s.select);
-  const selectMaterial = useApp((s) => s.selectMaterial);
-  const selectVersion = useApp((s) => s.selectVersion);
+export function AssocPanel({ pane = "primary" }: { pane?: PaneId }) {
+  const view = usePaneValue(pane, "view");
+  const selected = usePaneValue(pane, "selected");
+  const material = usePaneValue(pane, "material");
+  const select = usePaneAction(pane, "select");
+  const selectMaterial = usePaneAction(pane, "selectMaterial");
+  const selectVersion = usePaneAction(pane, "selectVersion");
   const assocPicker = useApp((s) => s.assocPicker);
   const openAssocPicker = useApp((s) => s.openAssocPicker);
+  const activePane = useApp((s) => s.activePane);
 
   const isMaterial = view.kind === "material";
   const currentId = isMaterial ? view.id : selected?.id ?? null;
@@ -156,14 +159,14 @@ export function AssocPanel() {
   const [targets, setTargets] = useState<{ title: string; target: string; id: string | null }[]>([]);
 
   const refresh = useCallback(async () => {
-    const st = useApp.getState();
+    const st = paneSlice(useApp.getState(), pane);
     const id = st.view.kind === "material" ? st.view.id : st.view.kind === "post" ? st.selectedId : null;
     if (!id) {
       setTargets([]);
       return;
     }
     setTargets(await api.assocTargets(id).catch(() => []));
-  }, []);
+  }, [pane]);
 
   useEffect(() => {
     void refresh();
@@ -175,7 +178,7 @@ export function AssocPanel() {
 
   const onRemove = async (_e: AssocEntry, entryId: string) => {
     await api.updateAssoc(currentId, entryId, false);
-    await reloadAll();
+    await reloadAll(pane);
     await refresh();
   };
 
@@ -227,7 +230,8 @@ export function AssocPanel() {
         </button>
       </div>
 
-      {assocPicker && <AssocPicker kind={assocPicker.kind} currentId={currentId} />}
+      {/* 双栏时 picker 只在活动栏实例渲染一次，避免两份叠层 */}
+      {assocPicker && activePane === pane && <AssocPicker kind={assocPicker.kind} currentId={currentId} pane={pane} />}
     </div>
   );
 }

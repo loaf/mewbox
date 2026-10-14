@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, Backlink } from "../lib/api";
 import { useApp } from "../stores/app";
+import { useActiveValue, useActiveAction } from "../stores/pane";
 
 const KIND_LABEL: Record<Backlink["kind"], string> = {
   wiki: "正文链接",
@@ -9,12 +10,12 @@ const KIND_LABEL: Record<Backlink["kind"], string> = {
 
 /** 右栏「反链」：谁在引用我（正文 [[wiki]] 与尾部关联块两来源标注，§7.2） */
 export function BacklinksPanel() {
-  const view = useApp((s) => s.view);
-  const selectedId = useApp((s) => s.selectedId);
+  const view = useActiveValue("view");
+  const selectedId = useActiveValue("selectedId");
   const posts = useApp((s) => s.posts);
   const materials = useApp((s) => s.materials);
-  const select = useApp((s) => s.select);
-  const selectMaterial = useApp((s) => s.selectMaterial);
+  const select = useActiveAction("select");
+  const selectMaterial = useActiveAction("selectMaterial");
 
   const currentId = view.kind === "material" ? view.id : view.kind === "post" ? selectedId : null;
 

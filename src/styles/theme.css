@@ -167,3 +167,8 @@ a {
 .split-measure .wmde-markdown {
   padding-inline: max(20px, calc((100% - 720px) / 2)) !important;
 }
+
+/* ═══ 双栏活动指示：活动栏顶部一条品牌色细线（不占布局高度） ═══ */
+.pane-active {
+  box-shadow: inset 0 2px 0 0 var(--cat);
+}

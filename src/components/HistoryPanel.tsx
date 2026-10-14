@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { diffLines } from "diff";
 import { api, SnapshotEntry } from "../lib/api";
-import { useApp } from "../stores/app";
+import { useActiveValue, useActiveAction } from "../stores/pane";
 
 function formatTs(ts: string): string {
   const m = ts.match(/^\d{4}-(\d{2}-\d{2})T(\d{2}:\d{2})/);
@@ -9,11 +9,11 @@ function formatTs(ts: string): string {
 }
 
 export function HistoryPanel() {
-  const view = useApp((s) => s.view);
-  const selectedId = useApp((s) => s.selectedId);
-  const reloadPost = useApp((s) => s.reloadPost);
-  const reloadVersion = useApp((s) => s.reloadVersion);
-  const reloadMaterial = useApp((s) => s.reloadMaterial);
+  const view = useActiveValue("view");
+  const selectedId = useActiveValue("selectedId");
+  const reloadPost = useActiveAction("reloadPost");
+  const reloadVersion = useActiveAction("reloadVersion");
+  const reloadMaterial = useActiveAction("reloadMaterial");
   const [snapshots, setSnapshots] = useState<SnapshotEntry[]>([]);
   const [openSnap, setOpenSnap] = useState<string | null>(null);
   const [snapBody, setSnapBody] = useState("");

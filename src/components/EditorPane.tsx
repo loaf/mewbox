@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { api, WikiHit } from "../lib/api";
-import { useApp, ViewMode } from "../stores/app";
+import { useApp, ViewMode, PaneId, panePatch, paneSlice } from "../stores/app";
+import { usePaneValue, usePaneAction, paneOps } from "../stores/pane";
 import {
   editorPreviewOptions,
   MarkdownPreview,
@@ -49,28 +50,34 @@ function insertAtCursor(ta: HTMLTextAreaElement, text: string): string {
   return next;
 }
 
-export function EditorPane() {
-  const view = useApp((s) => s.view);
-  const selected = useApp((s) => s.selected);
-  const selectedId = useApp((s) => s.selectedId);
-  const version = useApp((s) => s.version);
-  const material = useApp((s) => s.material);
+/** 双栏（第二步）：同一组件渲染主栏/次栏两个实例，取数与动作经 pane 映射到对应切片 */
+export function EditorPane({ pane = "primary" }: { pane?: PaneId }) {
+  const view = usePaneValue(pane, "view");
+  const selected = usePaneValue(pane, "selected");
+  const selectedId = usePaneValue(pane, "selectedId");
+  const version = usePaneValue(pane, "version");
+  const material = usePaneValue(pane, "material");
+  const viewMode = usePaneValue(pane, "viewMode");
+  const saveState = usePaneValue(pane, "saveState");
+  const savedAt = usePaneValue(pane, "savedAt");
+  const setViewMode = usePaneAction(pane, "setViewMode");
+  const reloadPost = usePaneAction(pane, "reloadPost");
+  const reloadMaterial = usePaneAction(pane, "reloadMaterial");
+  const backToPost = usePaneAction(pane, "backToPost");
+  const select = usePaneAction(pane, "select");
+  const selectMaterial = usePaneAction(pane, "selectMaterial");
   const posts = useApp((s) => s.posts);
-  const viewMode = useApp((s) => s.viewMode);
-  const setViewMode = useApp((s) => s.setViewMode);
-  const saveState = useApp((s) => s.saveState);
-  const savedAt = useApp((s) => s.savedAt);
   const load = useApp((s) => s.load);
-  const reloadPost = useApp((s) => s.reloadPost);
-  const reloadMaterial = useApp((s) => s.reloadMaterial);
-  const backToPost = useApp((s) => s.backToPost);
-  const select = useApp((s) => s.select);
-  const selectMaterial = useApp((s) => s.selectMaterial);
   const openAssocPicker = useApp((s) => s.openAssocPicker);
   const openPane2 = useApp((s) => s.openPane2);
+  const closePane2 = useApp((s) => s.closePane2);
+  const swapPane2 = useApp((s) => s.swapPane2);
   const editorZoom = useApp((s) => s.editorZoom);
   const zoomEditor = useApp((s) => s.zoomEditor);
   const resetEditorZoom = useApp((s) => s.resetEditorZoom);
+
+  /** 次栏实例的 testid 加后缀 -2，避免双栏时与主栏同名冲突 */
+  const tid = (id: string) => (pane === "secondary" ? `${id}-2` : id);
 
   const isVersion = view.kind === "version";
   const isMaterial = view.kind === "material";
@@ -98,8 +105,9 @@ export function EditorPane() {
   // 编辑器右键菜单（字号缩放）
   const [zoomMenu, setZoomMenu] = useState<{ x: number; y: number } | null>(null);
 
-  // Ctrl/Cmd+= 放大、Ctrl/Cmd+- 缩小、Ctrl/Cmd+0 重置字号
+  // Ctrl/Cmd+= 放大、Ctrl/Cmd+- 缩小、Ctrl/Cmd+0 重置字号（缩放是全局的，仅主栏实例注册）
   useEffect(() => {
+    if (pane !== "primary") return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === "=" || e.key === "+") {
@@ -135,86 +143,90 @@ export function EditorPane() {
 
   const doSave = useCallback(async () => {
     const st = useApp.getState();
+    const ops = paneOps(st, pane);
+    const sl = paneSlice(st, pane);
     const content = latestBody.current;
-    if (st.view.kind === "version") {
-      const { baseId, target } = st.view;
-      if (!st.version || content === st.version.body) return;
-      st.setSaving();
+    if (sl.view.kind === "version") {
+      const { baseId, target } = sl.view;
+      if (!sl.version || content === sl.version.body) return;
+      ops.setSaving();
       try {
         const r = await api.savePublishVersion(baseId, target, content);
         if (latestBody.current === content) {
-          useApp.setState((s) => ({
-            version: s.version ? { ...s.version, body: content } : null,
-          }));
-          st.setSaved(r.updatedAt);
+          useApp.setState((s) => {
+            const cur = paneSlice(s, pane).version;
+            return panePatch(pane, { version: cur ? { ...cur, body: content } : null });
+          });
+          ops.setSaved(r.updatedAt);
         }
       } catch (e) {
         console.error("版本保存失败", e);
-        st.setDirty();
+        ops.setDirty();
       }
       return;
     }
-    if (st.view.kind === "material") {
-      const id = st.view.id;
-      if (!st.material || content === st.material.body) return;
-      st.setSaving();
+    if (sl.view.kind === "material") {
+      const id = sl.view.id;
+      if (!sl.material || content === sl.material.body) return;
+      ops.setSaving();
       try {
         const r = await api.saveMaterial(id, content);
         if (latestBody.current === content) {
-          useApp.setState((s) => ({
-            material: s.material ? { ...s.material, body: content } : null,
-          }));
-          st.setSaved(r.updatedAt);
+          useApp.setState((s) => {
+            const cur = paneSlice(s, pane).material;
+            return panePatch(pane, { material: cur ? { ...cur, body: content } : null });
+          });
+          ops.setSaved(r.updatedAt);
         }
       } catch (e) {
         console.error("资料保存失败", e);
-        st.setDirty();
+        ops.setDirty();
       }
       return;
     }
-    const id = st.selected?.id;
+    const id = sl.selected?.id;
     if (!id) return;
-    const current = st.selected?.body;
-    if (content === current) return;
-    st.setSaving();
+    if (content === sl.selected?.body) return;
+    ops.setSaving();
     try {
       const r = await api.savePost(id, content);
       if (latestBody.current === content) {
-        useApp.setState((s) => ({
-          selected: s.selected ? { ...s.selected, body: content } : null,
-        }));
-        st.setSaved(r.updatedAt);
+        useApp.setState((s) => {
+          const cur = paneSlice(s, pane).selected;
+          return panePatch(pane, { selected: cur ? { ...cur, body: content } : null });
+        });
+        ops.setSaved(r.updatedAt);
       }
     } catch (e) {
       console.error("保存失败", e);
-      st.setDirty();
+      ops.setDirty();
     }
-  }, []);
+  }, [pane]);
 
-  // 注册 flush：切换文稿/版本/资料前强制落盘
+  // 注册 flush：切换文稿/版本/资料前强制落盘（主/次栏各一个槽位）
   useEffect(() => {
     const flush = async () => {
       if (timer.current) clearTimeout(timer.current);
       await doSave();
     };
-    useApp.getState().registerFlush(flush);
+    paneOps(useApp.getState(), pane).registerFlush(flush);
     window.addEventListener("beforeunload", () => void doSave());
     return () => {
-      if (useApp.getState().flushFn === flush) useApp.getState().registerFlush(null);
+      if (paneSlice(useApp.getState(), pane).flushFn === flush) paneOps(useApp.getState(), pane).registerFlush(null);
     };
-  }, [doSave]);
+  }, [doSave, pane]);
 
   // 防抖自动保存（800ms）
   useEffect(() => {
     if (!active) return;
     if (body === activeBody) return;
-    useApp.getState().setDirty();
+    paneOps(useApp.getState(), pane).setDirty();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void doSave(), 800);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [body, active, activeBody, doSave]);
+  }, [body, active, activeBody, doSave, pane]);
 
   const onTitleCommit = async () => {
     const title = titleDraft.trim();
@@ -273,7 +285,7 @@ export function EditorPane() {
   };
 
   // 预览里的 [[wiki]] 链接点击：唯一命中跳转，重名给候选，悬空给提示（§7.2）。
-  // Alt+点击：文稿命中 → 开进参考栏（分栏互参），主栏不动
+  // Alt+点击：文稿命中 → 开进「另一栏」（主栏 Alt → 次栏；次栏 Alt → 主栏）
   const onPreviewClick = async (e: React.MouseEvent) => {
     const anchor = (e.target as HTMLElement).closest?.("a[data-wiki]");
     if (!anchor) return;
@@ -283,7 +295,8 @@ export function EditorPane() {
     const r = await api.resolveWiki(title).catch(() => null);
     if (!r) return;
     if (e.altKey && r.matched?.kind === "post") {
-      void openPane2(r.matched.id);
+      if (pane === "primary") void openPane2(r.matched.id);
+      else void useApp.getState().select(r.matched.id); // 同篇防呆在 store 内处理
       return;
     }
     const jump = (h: WikiHit) => (h.kind === "post" ? void select(h.id) : void selectMaterial(h.id));
@@ -294,9 +307,11 @@ export function EditorPane() {
 
   // ───── M4：AI 结果插入 / 选区替换 / 全文面板 ─────
 
-  // 「插入当前文稿光标处」（AI 工作台 / 选区工具条 / 资料检索 都走这个事件）
+  // 「插入当前文稿光标处」（AI 工作台 / 选区工具条 / 资料检索 都走这个事件）。
+  // 双栏时按活动栏路由：仅 activePane 指向的实例执行插入
   useEffect(() => {
     const onInsert = (e: Event) => {
+      if (useApp.getState().activePane !== pane) return;
       const text = (e as CustomEvent<{ text?: string }>).detail?.text;
       if (!text) return;
       const ta = wrapRef.current?.querySelector("textarea");
@@ -305,7 +320,7 @@ export function EditorPane() {
     };
     window.addEventListener("mewbox:insert", onInsert);
     return () => window.removeEventListener("mewbox:insert", onInsert);
-  }, []);
+  }, [pane]);
 
   // 替换选区（SelectionToolbar 传入触发时的 range）
   const onReplaceRange = useCallback((start: number, end: number, text: string) => {
@@ -317,14 +332,14 @@ export function EditorPane() {
   const aiTarget: ContextEntry | null =
     view.kind === "post" && selected ? { kind: "post", id: selected.id } : view.kind === "material" ? { kind: "material", id: view.id } : null;
 
-  // 打开全文面板前强制落盘（后端按文件读全文）
+  // 打开全文面板前强制落盘（后端按文件读全文）——落的是本栏的盘
   const openProofread = async () => {
-    await useApp.getState().flushFn?.();
+    await paneSlice(useApp.getState(), pane).flushFn?.();
     setErrorsOpen(false);
     setProofOpen(true);
   };
   const openCheckErrors = async () => {
-    await useApp.getState().flushFn?.();
+    await paneSlice(useApp.getState(), pane).flushFn?.();
     setProofOpen(false);
     setErrorsOpen(true);
   };
@@ -353,7 +368,7 @@ export function EditorPane() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {isVersion && view.kind === "version" && (
-        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--cat-bg)] px-5 py-2.5 text-[13px]" data-testid="version-banner">
+        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--cat-bg)] px-5 py-2.5 text-[13px]" data-testid={tid("version-banner")}>
           <span className="font-semibold">📣 {view.target} 版</span>
           <span className="text-[var(--muted)]">属于《{baseTitle ?? view.baseId}》· 编辑不影响母版</span>
           {version?.publishedUrl && (
@@ -362,13 +377,13 @@ export function EditorPane() {
             </a>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <button className={MBTN} onClick={() => setSyncOpen(true)} data-testid="sync-btn">
+            <button className={MBTN} onClick={() => setSyncOpen(true)} data-testid={tid("sync-btn")}>
               从文稿同步…
             </button>
-            <button className={MBTN} onClick={() => setRecordOpen(true)} data-testid="record-btn">
+            <button className={MBTN} onClick={() => setRecordOpen(true)} data-testid={tid("record-btn")}>
               发布记录…
             </button>
-            <button className={MBTN_PRIMARY} onClick={() => void backToPost()} data-testid="back-to-post">
+            <button className={MBTN_PRIMARY} onClick={() => void backToPost()} data-testid={tid("back-to-post")}>
               回到母版
             </button>
           </div>
@@ -376,21 +391,21 @@ export function EditorPane() {
       )}
 
       {isMaterial && view.kind === "material" && (
-        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-2.5 text-[13px]" data-testid="material-banner">
+        <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-2.5 text-[13px]" data-testid={tid("material-banner")}>
           <span className="font-semibold">📚 资料 · {material?.folder ?? "Inbox"}</span>
           <span className="text-[var(--muted)]">资料服务写作——升格后进入文稿区</span>
           <div className="ml-auto flex items-center gap-2">
             <button
               className={MBTN}
               onClick={() => void onConvertToPost()}
-              data-testid="convert-to-post"
+              data-testid={tid("convert-to-post")}
             >
               升格为文稿
             </button>
             <button
               className={MBTN}
               onClick={() => openAssocPicker("posts")}
-              data-testid="link-to-posts"
+              data-testid={tid("link-to-posts")}
             >
               关联到文稿…
             </button>
@@ -404,7 +419,7 @@ export function EditorPane() {
         {isVersion ? (
           <span
             className="min-w-0 flex-1 truncate text-[20px] font-bold tracking-tight"
-            data-testid="version-title"
+            data-testid={tid("version-title")}
           >
             {version?.title || `${(view as { target: string }).target} 版`}
           </span>
@@ -415,10 +430,10 @@ export function EditorPane() {
             onBlur={() => void onTitleCommit()}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             className="min-w-0 flex-1 bg-transparent text-[20px] font-bold tracking-tight outline-none"
-            data-testid="editor-title"
+            data-testid={tid("editor-title")}
           />
         )}
-        <span className="flex-none text-[12px] text-[var(--muted)]" data-testid="save-indicator">
+        <span className="flex-none text-[12px] text-[var(--muted)]" data-testid={tid("save-indicator")}>
           {saveLabel}
         </span>
         {!isVersion && !isMaterial && (
@@ -428,7 +443,7 @@ export function EditorPane() {
             className={`flex-none cursor-pointer appearance-none rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold outline-none ${
               STATUS_PILL[selected?.status ?? "draft"]
             }`}
-            data-testid="editor-status"
+            data-testid={tid("editor-status")}
           >
             {STATUS_OPTIONS.map(([v, label]) => (
               <option key={v} value={v}>
@@ -438,21 +453,21 @@ export function EditorPane() {
           </select>
         )}
         {view.kind === "post" && selectedId && (
-          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid="publish-entry">
+          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid={tid("publish-entry")}>
             发布版本…
           </button>
         )}
         {isVersion && (
-          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid="open-publish-menu">
+          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid={tid("open-publish-menu")}>
             发布版本…
           </button>
         )}
         {!isVersion && (
           <>
-            <button onClick={() => void openProofread()} className={MBTN} data-testid="btn-proofread">
+            <button onClick={() => void openProofread()} className={MBTN} data-testid={tid("btn-proofread")}>
               润色建议
             </button>
-            <button onClick={() => void openCheckErrors()} className={MBTN} data-testid="btn-check-errors">
+            <button onClick={() => void openCheckErrors()} className={MBTN} data-testid={tid("btn-check-errors")}>
               查错
             </button>
           </>
@@ -473,12 +488,32 @@ export function EditorPane() {
                   ? "bg-white font-semibold text-[var(--ink)] shadow-xs"
                   : "text-[var(--muted)] hover:text-[var(--ink)]"
               }`}
-              data-testid={`mode-${mode}`}
+              data-testid={tid(`mode-${mode}`)}
             >
               {label}
             </button>
           ))}
         </div>
+        {pane === "secondary" && (
+          <>
+            <button
+              onClick={() => void swapPane2()}
+              className={MBTN}
+              title="与主栏交换（次栏篇转正，原主栏篇移到次栏）"
+              data-testid="pane2-swap"
+            >
+              ⇄ 换到主栏
+            </button>
+            <button
+              onClick={() => void closePane2()}
+              className={MBTN}
+              title="关闭次栏（Ctrl+\）"
+              data-testid="pane2-close"
+            >
+              ×
+            </button>
+          </>
+        )}
       </div>
 
       {/* 编辑器（预览管线预处理 wiki 链接；textarea 保持原文）。
@@ -508,7 +543,7 @@ export function EditorPane() {
               onSelect: selAnchor.handlers.onSelect,
               onMouseUp: selAnchor.handlers.onMouseUp,
               onKeyUp: selAnchor.handlers.onKeyUp,
-              "data-testid": "md-textarea",
+              "data-testid": tid("md-textarea"),
             } as unknown as NonNullable<
               Parameters<typeof MDEditor>[0]["textareaProps"]
             >
@@ -518,8 +553,8 @@ export function EditorPane() {
         />
       </div>
 
-      {/* 关联块（文稿/资料侧；版本无块） */}
-      <AssocPanel />
+      {/* 关联块（文稿/资料侧；版本无块）——随本栏目标 */}
+      <AssocPanel pane={pane} />
 
       {/* 编辑器右键菜单：字号缩放（与 Ctrl+= / Ctrl+- / Ctrl+0 等价） */}
       {zoomMenu && (
@@ -535,7 +570,7 @@ export function EditorPane() {
           <div
             className="fixed z-50 min-w-[180px] rounded-lg border border-[var(--line)] bg-white py-1.5 text-[13px] shadow-lg"
             style={{ left: zoomMenu.x, top: zoomMenu.y }}
-            data-testid="zoom-menu"
+            data-testid={tid("zoom-menu")}
           >
             <button
               className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-[var(--cream)]"
@@ -543,7 +578,7 @@ export function EditorPane() {
                 zoomEditor(0.1);
                 setZoomMenu(null);
               }}
-              data-testid="zoom-in"
+              data-testid={tid("zoom-in")}
             >
               <span>放大字体</span>
               <span className="text-[10px] text-[var(--muted)]">Ctrl+=</span>
@@ -554,7 +589,7 @@ export function EditorPane() {
                 zoomEditor(-0.1);
                 setZoomMenu(null);
               }}
-              data-testid="zoom-out"
+              data-testid={tid("zoom-out")}
             >
               <span>缩小字体</span>
               <span className="text-[10px] text-[var(--muted)]">Ctrl+-</span>
@@ -565,7 +600,7 @@ export function EditorPane() {
                 resetEditorZoom();
                 setZoomMenu(null);
               }}
-              data-testid="zoom-reset"
+              data-testid={tid("zoom-reset")}
             >
               <span>重置字号（{Math.round(editorZoom * 100)}%）</span>
               <span className="text-[10px] text-[var(--muted)]">Ctrl+0</span>
@@ -577,7 +612,7 @@ export function EditorPane() {
       {/* 状态栏（视觉方案 §3.3：28px 高、浅米底，对齐原型 statusbar） */}
       <div
         className="flex h-[28px] flex-none items-center gap-2 border-t border-[var(--line)] bg-[#fbf8f1] px-4 text-[11.5px] text-[var(--muted)]"
-        data-testid="statusbar"
+        data-testid={tid("statusbar")}
       >
         <span>共 {body.replace(/\s/g, "").length} 字</span>
         <span className="opacity-50">·</span>
@@ -586,7 +621,7 @@ export function EditorPane() {
           className="ml-auto px-1 hover:text-[var(--ink)]"
           title="字号缩放（Ctrl+= 放大 / Ctrl+- 缩小 / Ctrl+0 重置）"
           onClick={resetEditorZoom}
-          data-testid="zoom-indicator"
+          data-testid={tid("zoom-indicator")}
         >
           字号 {Math.round(editorZoom * 100)}%
         </button>

@@ -5,7 +5,6 @@ import { useApp } from "../stores/app";
 import { PostTree } from "./PostTree";
 import { NewPostDialog } from "./NewPostDialog";
 import { EditorPane } from "./EditorPane";
-import { RefPane } from "./RefPane";
 import { OutlinePanel } from "./OutlinePanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { BacklinksPanel } from "./BacklinksPanel";
@@ -210,8 +209,10 @@ export function AppShell() {
   const toggleLeft = useApp((s) => s.toggleLeft);
   const toggleRight = useApp((s) => s.toggleRight);
   const setRightOpen = useApp((s) => s.setRightOpen);
-  const pane2 = useApp((s) => s.pane2);
+  const pane2 = useApp((s) => s.pane2Open);
   const togglePane2 = useApp((s) => s.togglePane2);
+  const activePane = useApp((s) => s.activePane);
+  const setActivePane = useApp((s) => s.setActivePane);
 
   const [creating, setCreating] = useState(false);
   const posts = useApp((s) => s.posts);
@@ -308,11 +309,19 @@ export function AppShell() {
       )}
       <main ref={mainRef} className="flex min-w-0 flex-1 flex-col bg-[var(--bg)]">
         {/* 版本/资料模式下 selected 为空，但编辑器照常渲染（横幅标识归属）。
-            分栏（方案 B 第一步）：主编辑器 + 只读参考栏，中间可拖拽分隔条 */}
-        {hasEditorTarget ? (
+            分栏（第二步）：主/次两个完整编辑器，中间可拖拽分隔条；
+            点击/聚焦切换活动栏（右栏面板与 AI 插入跟随），data-pane 供 DOM 定位 */}
+        {hasEditorTarget || pane2 ? (
           <div className="flex min-h-0 min-w-0 flex-1">
-            <div className={`flex min-w-0 flex-1 flex-col ${pane2 ? "split-measure" : ""}`}>
-              <EditorPane />
+            <div
+              data-pane="primary"
+              onMouseDownCapture={() => setActivePane("primary")}
+              onFocusCapture={() => setActivePane("primary")}
+              className={`flex min-w-0 flex-1 flex-col ${pane2 ? "split-measure" : ""} ${
+                pane2 && activePane === "primary" ? "pane-active" : ""
+              }`}
+            >
+              {hasEditorTarget ? <EditorPane /> : <EmptyState onCreate={onCreate} />}
             </div>
             {pane2 && (
               <>
@@ -323,8 +332,14 @@ export function AppShell() {
                   title="拖动调整分栏宽度，双击复位"
                   data-testid="pane-divider"
                 />
-                <div className="min-w-0 flex-none border-l border-[var(--line)]" style={{ width: `${pane2Pct}%` }}>
-                  <RefPane />
+                <div
+                  data-pane="secondary"
+                  onMouseDownCapture={() => setActivePane("secondary")}
+                  onFocusCapture={() => setActivePane("secondary")}
+                  className={`min-w-0 flex-none border-l border-[var(--line)] ${activePane === "secondary" ? "pane-active" : ""}`}
+                  style={{ width: `${pane2Pct}%` }}
+                >
+                  <EditorPane pane="secondary" />
                 </div>
               </>
             )}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { api, SearchHit } from "../lib/api";
 import { useApp } from "../stores/app";
+import { useActiveAction } from "../stores/pane";
 
 /** 分组顺序：文稿 / 资料 / 发布版本（M5，DESIGN §9/§10 左栏入口） */
 const GROUPS: ReadonlyArray<{ kind: string; label: string }> = [
@@ -35,9 +36,9 @@ function highlightNodes(text: string, tokens: string[], keyBase = ""): ReactNode
 export function GlobalSearch() {
   const open = useApp((s) => s.searchOpen);
   const setSearchOpen = useApp((s) => s.setSearchOpen);
-  const select = useApp((s) => s.select);
-  const selectMaterial = useApp((s) => s.selectMaterial);
-  const selectVersion = useApp((s) => s.selectVersion);
+  const select = useActiveAction("select");
+  const selectMaterial = useActiveAction("selectMaterial");
+  const selectVersion = useActiveAction("selectVersion");
   const openPane2 = useApp((s) => s.openPane2);
 
   const [query, setQuery] = useState("");

@@ -6,6 +6,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import remarkEmoji from "remark-emoji";
+import { slugify } from "./outline";
 import { visit } from "unist-util-visit";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import "katex/dist/katex.min.css";
@@ -159,8 +160,40 @@ export const previewRemarkPlugins: PluggableList = [
   remarkMath,
   remarkEmoji,
 ];
+
+interface HastNode {
+  type?: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
+/** 标题锚点（右栏大纲跳转依赖）：h1-h6 注入与 outline.slugify 完全同算法的 id
+ *  （含同名 -n 去重编号）。不用 rehype-slug——其 slug 规则与 outline 不一致会跳不到。
+ *  seen 表每次 transform 新建，live 模式连续重渲染不会串号。 */
+export function rehypeHeadingIds(): (tree: HastNode) => void {
+  return (tree) => {
+    const seen = new Map<string, number>();
+    const textOf = (n: HastNode): string =>
+      n.children ? n.children.map(textOf).join("") : (n.value ?? "");
+    const walk = (n: HastNode) => {
+      if (n.children) n.children.forEach(walk);
+      if (n.tagName && /^h[1-6]$/.test(n.tagName)) {
+        let slug = slugify(textOf(n));
+        const dup = seen.get(slug) ?? 0;
+        seen.set(slug, dup + 1);
+        if (dup > 0) slug = `${slug}-${dup}`;
+        n.properties = { ...(n.properties ?? {}), id: slug };
+      }
+    };
+    walk(tree);
+  };
+}
+
 export const previewRehypePlugins: PluggableList = [
   rehypeRaw,
+  rehypeHeadingIds,
   rehypeKatex,
   [rehypeHighlight, { detect: false }],
 ];
