@@ -17,8 +17,10 @@ import { AIWorkbench } from "./AIWorkbench";
 import { SettingsPanel } from "./SettingsPanel";
 import { GlobalSearch } from "./GlobalSearch";
 
-/** Markdown 目录导出（M5，DESIGN §12）：posts 平铺 / kb 树，frontmatter 透传、附件随行 */
-function ExportButtons() {
+/** Markdown 目录导出（M5，DESIGN §12）：posts 平铺 / kb 树，frontmatter 透传、附件随行。
+ *  视觉方案 §3.1：两项收进底部工具坞「📤 导出」的上拉菜单，不再常驻导航 */
+function ExportMenu() {
+  const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const run = async (scope: "posts" | "kb") => {
@@ -36,31 +38,49 @@ function ExportButtons() {
   };
 
   return (
-    <div className="border-t border-dashed border-[var(--line)] px-4 py-3">
-      <button
-        onClick={() => void run("posts")}
-        className="w-full py-2 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
-        data-testid="export-posts"
-      >
-        📤 导出文稿 Markdown…
-      </button>
-      <button
-        onClick={() => void run("kb")}
-        className="w-full py-2 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
-        data-testid="export-kb"
-      >
-        📤 导出知识库 Markdown…
-      </button>
-      {note && (
-        <p className="pt-1 text-xs text-[var(--green)]" data-testid="export-note">
-          {note}
-        </p>
+    <div className="relative flex items-center">
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div
+            className="absolute bottom-full left-0 z-40 mb-1.5 w-[200px] rounded-lg border border-[var(--line)] bg-white py-1 shadow-lg"
+            data-testid="export-menu"
+          >
+            <button
+              onClick={() => void run("posts")}
+              className="block w-full px-3 py-1.5 text-left text-[12px] text-[var(--ink)] hover:bg-[var(--cream)]"
+              data-testid="export-posts"
+            >
+              📤 导出文稿 Markdown…
+            </button>
+            <button
+              onClick={() => void run("kb")}
+              className="block w-full px-3 py-1.5 text-left text-[12px] text-[var(--ink)] hover:bg-[var(--cream)]"
+              data-testid="export-kb"
+            >
+              📤 导出知识库 Markdown…
+            </button>
+            {note && (
+              <p className="px-3 pb-1 pt-1 text-[10.5px] text-[var(--green)]" data-testid="export-note">
+                {note}
+              </p>
+            )}
+          </div>
+        </>
       )}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="whitespace-nowrap rounded-md px-2 py-1 text-[12px] text-[var(--muted)] hover:bg-[var(--cream)] hover:text-[var(--ink)]"
+        title="导出文稿 / 知识库 Markdown"
+        data-testid="export-entry"
+      >
+        📤 导出
+      </button>
     </div>
   );
 }
 
-/** 左栏：文稿区 / 知识库区（M3）/ 全局搜索入口（M5）/ 导出 / 回收站与健康检查入口 */
+/** 左栏：文稿区 / 知识库区（M3）/ 底部搜索触发条 + 单行工具坞（视觉方案 §3.1） */
 function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const posts = useApp((s) => s.posts);
   const setTrashOpen = useApp((s) => s.setTrashOpen);
@@ -70,15 +90,18 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
   const trashCount = useApp((s) => s.trash.length);
   const [healthOpen, setHealthOpen] = useState(false);
 
+  const dockBtn =
+    "whitespace-nowrap rounded-md px-2 py-1 text-[12px] text-[var(--muted)] hover:bg-[var(--cream)] hover:text-[var(--ink)]";
+
   return (
-    <aside className="flex w-[252px] flex-none flex-col overflow-auto border-r border-[var(--line)] bg-[var(--card)]">
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <span className="inline-flex items-center gap-2 rounded-md bg-[var(--cat)] px-4 py-2.5 text-sm font-bold text-white">
+    <aside className="flex w-[240px] flex-none flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--card)]">
+      <div className="flex items-center justify-between px-3.5 pb-2 pt-3.5">
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--cat)] px-3 py-1.5 text-[13px] font-bold text-white">
           🐾 喵盒
         </span>
         <button
           onClick={toggleLeft}
-          className="px-1.5 py-1 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-[var(--muted)] hover:bg-[var(--cream)] hover:text-[var(--ink)]"
           title="隐藏左栏（Ctrl+B）"
           data-testid="collapse-left"
         >
@@ -86,43 +109,36 @@ function LeftColumn({ onCreate }: { onCreate: () => void }) {
         </button>
       </div>
 
-      <PostTree onNewPost={onCreate} />
+      {/* 树区独占滚动：底部入口收拢后，目录树拿到全部剩余高度 */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <PostTree onNewPost={onCreate} />
+        <KbTree />
+      </div>
 
-      <KbTree />
-
-      <section className="border-t border-[var(--line)] px-4 py-5" aria-label="全局搜索">
+      <section aria-label="全局搜索">
         <button
           onClick={() => setSearchOpen(true)}
-          className="flex w-full items-center justify-between rounded-md bg-[var(--cream)] px-4 py-3 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
+          className="mx-3 mb-2 mt-2 flex w-[calc(100%-1.5rem)] items-center justify-between rounded-lg bg-[var(--cream)] px-3 py-1.5 text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
           data-testid="search-entry"
         >
           <span>🔍 全局搜索</span>
-          <span className="rounded border border-[var(--line)] bg-white px-2 py-1 text-[11px]">Ctrl+Shift+F</span>
+          <span className="rounded border border-[var(--line)] bg-white px-1.5 py-px font-mono text-[10px] leading-[1.4]">
+            Ctrl+Shift+F
+          </span>
         </button>
       </section>
 
-      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-1 pb-3">
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="w-full px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
-          data-testid="settings-entry"
-        >
+      {/* 低频入口工具坞：单行四项，为目录树腾出 150px+ 高度 */}
+      <div className="flex h-[38px] flex-none items-center justify-between border-t border-[var(--line)] px-3">
+        <button onClick={() => setSettingsOpen(true)} className={dockBtn} data-testid="settings-entry">
           ⚙ 设置
         </button>
-        <button
-          onClick={() => setHealthOpen(true)}
-          className="w-full px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
-          data-testid="health-entry"
-        >
-          🩺 健康检查
+        <button onClick={() => setHealthOpen(true)} className={dockBtn} data-testid="health-entry">
+          🩺 体检
         </button>
-        <ExportButtons />
-        <button
-          onClick={() => setTrashOpen(true)}
-          className="w-full border-t border-dashed border-[var(--line)] px-4 py-3 text-left text-[13px] text-[var(--muted)] hover:text-[var(--ink)]"
-          data-testid="trash-entry"
-        >
-          🗑 回收站{trashCount > 0 ? `（${trashCount}）` : ""}
+        <ExportMenu />
+        <button onClick={() => setTrashOpen(true)} className={dockBtn} data-testid="trash-entry">
+          🗑 回收站{trashCount > 0 ? ` (${trashCount})` : ""}
         </button>
       </div>
       <div className="hidden">{posts.length}</div>
@@ -173,7 +189,7 @@ const RIGHT_TABS = [
   ["outline", "大纲"],
   ["backlinks", "反链"],
   ["history", "历史"],
-  ["material-search", "资料检索"],
+  ["material-search", "资料"],
   ["ai", "AI"],
 ] as const;
 
@@ -319,15 +335,16 @@ export function AppShell() {
       </main>
       {rightOpen ? (
         <aside className="flex w-[312px] flex-none flex-col border-l border-[var(--line)] bg-[var(--card)]">
-          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] px-4 py-3.5">
+          {/* 视觉方案 §3.4：单行紧凑页签（不换行），312px 内排下 5 页签 + 折叠按钮 */}
+          <div className="flex flex-nowrap items-center gap-1 border-b border-[var(--line)] bg-[#fbf8f1] px-2.5 py-2">
             {RIGHT_TABS.map(([tab, label]) => (
               <button
                 key={tab}
                 onClick={() => setRightTab(tab)}
-                className={`rounded-md px-4 py-2.5 text-[13px] ${
+                className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[12px] ${
                   rightTab === tab
                     ? "bg-[var(--cat)] font-semibold text-white"
-                    : "bg-[var(--cream)] text-[var(--muted)] hover:text-[var(--ink)]"
+                    : "text-[var(--muted)] hover:bg-[var(--cream)] hover:text-[var(--ink)]"
                 }`}
                 data-testid={`tab-${tab}`}
               >
@@ -343,7 +360,7 @@ export function AppShell() {
               »
             </button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col p-4" data-testid={`panel-${rightTab}`}>
+          <div className="flex min-h-0 flex-1 flex-col p-3.5" data-testid={`panel-${rightTab}`}>
             {rightTab === "outline" ? (
               <OutlinePanel />
             ) : rightTab === "backlinks" ? (

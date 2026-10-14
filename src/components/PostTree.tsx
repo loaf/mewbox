@@ -120,7 +120,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
     return (
       <div key={path} data-testid={`folder-${path.replace(/\//g, "-")}`}>
         <div
-          className={`flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-[14px] font-semibold ${
+          className={`flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold ${
             dragOver === path ? "border border-dashed border-[var(--cat)] bg-[var(--cat-bg)]" : ""
           }`}
           style={{ paddingLeft: 8 + depth * 12 }}
@@ -162,7 +162,7 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
                 <div
                   key={ref.id}
                   data-testid="post-item"
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg py-2 pr-2 text-[14px] ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[13px] ${
                     selectedId === ref.id || isBase
                       ? "bg-[var(--cat-bg)] font-semibold"
                       : "hover:bg-[var(--cream)]"
@@ -200,9 +200,9 @@ export function PostTree({ onNewPost }: { onNewPost: () => void }) {
   };
 
   return (
-    <section className="border-t border-[var(--line)] px-3 py-5" aria-label="文稿">
-      <div className="mb-3 flex items-center justify-between px-1">
-        <span className="text-[15px] font-bold text-[var(--ink)]">📄 文稿</span>
+    <section className="px-3 py-4" aria-label="文稿">
+      <div className="mb-2.5 flex items-center justify-between px-1">
+        <span className="text-[11.5px] font-bold tracking-[0.04em] text-[var(--muted)]">📄 文稿</span>
         <button
           onClick={onNewPost}
           className="px-1.5 py-1 text-[12px] font-semibold text-[var(--cat)] hover:text-[var(--cat-dk)]"

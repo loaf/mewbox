@@ -231,11 +231,13 @@ describe("AppShell", () => {
     expect(screen.getByTestId("global-search")).toBeInTheDocument();
   });
 
-  test("导出按钮：选目录 → exportMd(scope, dir)，提示导出结果", async () => {
+  test("底部工具坞「📤 导出」菜单：选目录 → exportMd(scope, dir)，提示导出结果", async () => {
     dialogMocks.open.mockResolvedValue("C:/out/md");
     exportMdMock.mockResolvedValue({ files: 3, assets: 2 });
     render(<AppShell />);
-    fireEvent.click(await screen.findByTestId("export-posts"));
+    // 导出两项收进上拉菜单（视觉方案 §3.1）：先开菜单再点导出
+    fireEvent.click(await screen.findByTestId("export-entry"));
+    fireEvent.click(screen.getByTestId("export-posts"));
     await waitFor(() =>
       expect(exportMdMock).toHaveBeenCalledWith("posts", "C:/out/md"),
     );
@@ -249,7 +251,8 @@ describe("AppShell", () => {
   test("导出对话框取消 → 不调 exportMd", async () => {
     dialogMocks.open.mockResolvedValue(null);
     render(<AppShell />);
-    fireEvent.click(await screen.findByTestId("export-posts"));
+    fireEvent.click(await screen.findByTestId("export-entry"));
+    fireEvent.click(screen.getByTestId("export-posts"));
     await waitFor(() => expect(dialogMocks.open).toHaveBeenCalled());
     expect(exportMdMock).not.toHaveBeenCalled();
   });

@@ -93,7 +93,7 @@ export function HistoryPanel() {
 
   if (snapshots.length === 0) {
     return (
-      <div className="p-3 text-[13px] text-[var(--muted)]" data-testid="history-empty">
+      <div className="text-[12.5px] text-[var(--muted)]" data-testid="history-empty">
         暂无历史快照——保存时的实质修改会自动留档。
       </div>
     );
@@ -103,11 +103,11 @@ export function HistoryPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="history-list">
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto">
         {snapshots.map((s) => (
           <div
             key={s.fileName}
-            className={`mb-1.5 rounded-lg border px-3 py-2 text-[13px] ${
+            className={`mb-1.5 rounded-lg border bg-white px-3 py-2 text-[12.5px] ${
               openSnap === s.fileName ? "border-[var(--cat)] bg-[var(--cat-bg)]" : "border-[var(--line)]"
             }`}
           >

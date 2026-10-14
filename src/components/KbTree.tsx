@@ -84,7 +84,7 @@ export function KbTree() {
     return (
       <div key={path} data-testid={`kb-folder-${path.replace(/\//g, "-")}`}>
         <div
-          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-[14px] font-semibold"
+          className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold"
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => setCollapsed((c) => ({ ...c, [path]: !c[path] }))}
           onContextMenu={(e) => {
@@ -106,7 +106,7 @@ export function KbTree() {
               <div
                 key={m.id}
                 data-testid="material-item"
-                className={`flex cursor-pointer items-center gap-2 rounded-lg py-2 pr-2 text-[14px] ${
+                className={`flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 text-[13px] ${
                   activeMaterialId === m.id
                     ? "bg-[var(--cat-bg)] font-semibold"
                     : "hover:bg-[var(--cream)]"
@@ -129,9 +129,9 @@ export function KbTree() {
   };
 
   return (
-    <section className="border-t border-[var(--line)] px-3 py-5" aria-label="知识库">
-      <div className="mb-3 flex items-center justify-between px-1">
-        <span className="text-[15px] font-bold text-[var(--ink)]">📚 知识库</span>
+    <section className="px-3 py-4" aria-label="知识库">
+      <div className="mb-2.5 flex items-center justify-between px-1">
+        <span className="text-[11.5px] font-bold tracking-[0.04em] text-[var(--muted)]">📚 知识库</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setNewDialog({ dir: "Inbox" })}

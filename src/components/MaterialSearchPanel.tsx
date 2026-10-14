@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type SearchHit } from "../lib/api";
 import { useApp } from "../stores/app";
 
-const btn = "rounded-md border border-[var(--line)] bg-white px-3 py-1 text-[13px] hover:border-[var(--cat)]";
+const btn = "rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-[12px] hover:border-[var(--cat)]";
 
 /**
  * 资料检索（T13，DESIGN §9 复用 FTS）：默认仅知识库资料；
@@ -58,11 +58,11 @@ export function MaterialSearchPanel() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-3 text-xs" data-testid="material-search">
+    <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="material-search">
       <div className="flex gap-1">
         <input
           ref={inputRef}
-          className="min-w-0 flex-1 rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[13px] outline-none focus:border-[var(--cat)]"
+          className="min-w-0 flex-1 rounded-md border border-[var(--line)] bg-white px-3 py-1.5 text-[12px] outline-none focus:border-[var(--cat)]"
           placeholder="搜索知识库资料…（Ctrl+K）"
           value={q}
           onChange={(e) => setQ(e.target.value)}

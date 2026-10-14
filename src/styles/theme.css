@@ -70,14 +70,26 @@ a {
   box-shadow: none !important;
   --md-editor-bg: var(--card);
 }
-.w-md-editor-toolbar {
-  background: var(--card);
+/* 内置格式工具栏：弱化为浅米底、32px 高的灰图标条（视觉方案 §3.3）。
+   选择器加 .w-md-editor 前缀抬高特异性——库 css 后加载，平局会被打回 */
+.w-md-editor .w-md-editor-toolbar {
+  background: #fbf8f1;
   border-bottom: 1px solid var(--line);
-  padding: 6px 10px;
-  li > button {
-    font-size: 16px !important;
-    padding: 4px 6px;
-  }
+  padding: 4px 10px;
+}
+.w-md-editor .w-md-editor-toolbar li > button {
+  height: 24px;
+  padding: 4px 6px;
+  color: var(--muted);
+  border-radius: 6px;
+}
+.w-md-editor .w-md-editor-toolbar li > button:hover {
+  color: var(--ink);
+  background: var(--cream);
+}
+.w-md-editor .w-md-editor-toolbar li > button svg {
+  width: 13px;
+  height: 13px;
 }
 .w-md-editor-content {
   background: var(--card);
@@ -90,6 +102,15 @@ a {
    提高特异性，不再依赖加载顺序。字号走 --editor-zoom（Ctrl+= / Ctrl+-，EditorPane 挂变量） */
 .w-md-editor-text {
   background: #ffffff;
+}
+/* 正文阅读宽度（视觉方案 §3.3）：行宽控制在 680~760px，重现信纸留白。
+   padding 必须挂在共享父层（镜像对齐机制，见下方注释），库默认仅 10px */
+.w-md-editor .w-md-editor-text {
+  padding: 28px max(36px, calc((100% - 760px) / 2));
+}
+/* 预览面板：去掉库自带 10px 20px，留白交给 wmde-markdown 统一控制 */
+.w-md-editor .w-md-editor-preview {
+  padding: 0;
 }
 .w-md-editor .w-md-editor-text {
   font-size: calc(15px * var(--editor-zoom, 1)) !important;
@@ -128,6 +149,11 @@ a {
   font-size: calc(15px * var(--editor-zoom, 1));
   line-height: 1.9;
 }
+/* 阅读宽度仅限编辑器内的预览（RefPane 等独立 wmde-markdown 自带容器留白）；
+   !important 压过 markdown-preview 库的 padding，故 split-measure 覆盖也需 !important */
+.w-md-editor .wmde-markdown {
+  padding: 28px max(36px, calc((100% - 760px) / 2)) !important;
+}
 
 /* ═══ 分栏模式（split-measure 挂在主编辑器外层）：文字列限宽 ≤720px 居中 ═══
    编辑器白卡仍充满整栏，只是正文列收窄保持可读性（用户已确认）。
@@ -139,5 +165,5 @@ a {
   padding-inline: max(20px, calc((100% - 720px) / 2));
 }
 .split-measure .wmde-markdown {
-  padding-inline: max(20px, calc((100% - 720px) / 2));
+  padding-inline: max(20px, calc((100% - 720px) / 2)) !important;
 }

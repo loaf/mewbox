@@ -25,10 +25,20 @@ const STATUS_OPTIONS = [
   ["archived", "归档"],
 ] as const;
 
-/** 标题栏/菜单栏按钮：纯文字（无圆角方框），hover 显色；字号对齐「已保存」基准 */
-const TEXT_BTN = "px-2 py-1 text-[13px] text-[var(--muted)] hover:text-[var(--ink)]";
-/** 主操作（回到母版等）：纯文字但保留品牌色与加重 */
-const TEXT_BTN_PRIMARY = "px-2 py-1 text-[13px] font-semibold text-[var(--cat)] hover:text-[var(--cat-dk)]";
+/** 状态胶囊配色（视觉方案 §3.2：带语义色彩的圆角胶囊，对齐左栏 StatusChip） */
+const STATUS_PILL: Record<string, string> = {
+  draft: "bg-[#f3e3c8] text-[#9a7a3c]",
+  writing: "bg-[var(--cat-bg)] text-[var(--cat)]",
+  done: "bg-[#e0ecdd] text-[var(--green)]",
+  archived: "bg-[var(--cream)] text-[var(--muted)]",
+};
+
+/** 顶部操作按钮（视觉方案 §3.2，原型 .mbtn）：轻边框卡片感，恢复可交互边界 */
+const MBTN =
+  "rounded-[7px] border border-[var(--line)] bg-white px-2.5 py-1 text-[12px] text-[var(--ink)] hover:bg-[var(--cream)]";
+/** 主操作（回到母版等）：品牌色实底 */
+const MBTN_PRIMARY =
+  "rounded-[7px] border border-[var(--cat)] bg-[var(--cat)] px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-[var(--cat-dk)]";
 
 function insertAtCursor(ta: HTMLTextAreaElement, text: string): string {
   const { selectionStart: s, selectionEnd: e, value } = ta;
@@ -351,17 +361,16 @@ export function EditorPane() {
               已发布 ↗
             </a>
           )}
-          <div className="ml-auto flex items-center gap-3">
-            <button className={TEXT_BTN} onClick={() => setSyncOpen(true)} data-testid="sync-btn">
+          <div className="ml-auto flex items-center gap-2">
+            <button className={MBTN} onClick={() => setSyncOpen(true)} data-testid="sync-btn">
               从文稿同步…
             </button>
-            <button className={TEXT_BTN} onClick={() => setRecordOpen(true)} data-testid="record-btn">
+            <button className={MBTN} onClick={() => setRecordOpen(true)} data-testid="record-btn">
               发布记录…
             </button>
-            <button className={TEXT_BTN_PRIMARY} onClick={() => void backToPost()} data-testid="back-to-post">
+            <button className={MBTN_PRIMARY} onClick={() => void backToPost()} data-testid="back-to-post">
               回到母版
             </button>
-            <span className="w-1 flex-none" aria-hidden />
           </div>
         </div>
       )}
@@ -370,30 +379,33 @@ export function EditorPane() {
         <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#eef3f7] px-5 py-2.5 text-[13px]" data-testid="material-banner">
           <span className="font-semibold">📚 资料 · {material?.folder ?? "Inbox"}</span>
           <span className="text-[var(--muted)]">资料服务写作——升格后进入文稿区</span>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             <button
-              className={TEXT_BTN}
+              className={MBTN}
               onClick={() => void onConvertToPost()}
               data-testid="convert-to-post"
             >
               升格为文稿
             </button>
             <button
-              className={TEXT_BTN}
+              className={MBTN}
               onClick={() => openAssocPicker("posts")}
               data-testid="link-to-posts"
             >
               关联到文稿…
             </button>
-            <span className="w-1 flex-none" aria-hidden />
           </div>
         </div>
       )}
 
-      {/* 顶部：标题 + 状态 + 模式 + 保存指示（资料无状态/发布）。按钮纯文字，两端留白 */}
-      <div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--card)] px-6 py-3.5">
+      {/* 顶部单层（视觉方案 §3.2）：标题 + 保存指示 + 状态胶囊 + 操作按钮 + 分段控制器。
+          原独立模式切换横条已并入，中栏顶部少一层横条 */}
+      <div className="flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--card)] px-5 py-2">
         {isVersion ? (
-          <span className="min-w-0 flex-1 truncate text-lg font-bold" data-testid="version-title">
+          <span
+            className="min-w-0 flex-1 truncate text-[20px] font-bold tracking-tight"
+            data-testid="version-title"
+          >
             {version?.title || `${(view as { target: string }).target} 版`}
           </span>
         ) : (
@@ -402,24 +414,20 @@ export function EditorPane() {
             onChange={(e) => setTitleDraft(e.target.value)}
             onBlur={() => void onTitleCommit()}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            className="min-w-0 flex-1 bg-transparent text-lg font-bold outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[20px] font-bold tracking-tight outline-none"
             data-testid="editor-title"
           />
         )}
-        {isVersion && (
-          <button
-            onClick={() => setPublishOpen(true)}
-            className={TEXT_BTN}
-            data-testid="open-publish-menu"
-          >
-            发布版本…
-          </button>
-        )}
+        <span className="flex-none text-[12px] text-[var(--muted)]" data-testid="save-indicator">
+          {saveLabel}
+        </span>
         {!isVersion && !isMaterial && (
           <select
             value={selected?.status ?? "draft"}
             onChange={(e) => void onStatusChange(e.target.value)}
-            className="cursor-pointer bg-transparent px-1 py-1 text-[13px] text-[var(--muted)] outline-none hover:text-[var(--ink)]"
+            className={`flex-none cursor-pointer appearance-none rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold outline-none ${
+              STATUS_PILL[selected?.status ?? "draft"]
+            }`}
             data-testid="editor-status"
           >
             {STATUS_OPTIONS.map(([v, label]) => (
@@ -429,42 +437,27 @@ export function EditorPane() {
             ))}
           </select>
         )}
-        <span className="text-[13px] text-[var(--muted)]" data-testid="save-indicator">
-          {saveLabel}
-        </span>
-        {!isVersion && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => void openProofread()}
-              className={TEXT_BTN}
-              data-testid="btn-proofread"
-            >
-              润色建议
-            </button>
-            <button
-              onClick={() => void openCheckErrors()}
-              className={TEXT_BTN}
-              data-testid="btn-check-errors"
-            >
-              查错
-            </button>
-            <span className="w-1 flex-none" aria-hidden />
-          </div>
-        )}
-      </div>
-
-      {/* 模式切换条：发布入口居左；源码/分栏/预览开关贴右端（靠近右栏） */}
-      <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[#fbf7ef] py-2.5 pl-6 pr-3 text-[13px]">
         {view.kind === "post" && selectedId && (
-          <button
-            onClick={() => setPublishOpen(true)}
-            className={TEXT_BTN}
-            data-testid="publish-entry"
-          >
+          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid="publish-entry">
             发布版本…
           </button>
         )}
-        <div className="ml-auto inline-flex gap-2 rounded-md bg-[var(--cream)] p-1.5">
+        {isVersion && (
+          <button onClick={() => setPublishOpen(true)} className={MBTN} data-testid="open-publish-menu">
+            发布版本…
+          </button>
+        )}
+        {!isVersion && (
+          <>
+            <button onClick={() => void openProofread()} className={MBTN} data-testid="btn-proofread">
+              润色建议
+            </button>
+            <button onClick={() => void openCheckErrors()} className={MBTN} data-testid="btn-check-errors">
+              查错
+            </button>
+          </>
+        )}
+        <div className="ml-1 inline-flex flex-none rounded-lg border border-[var(--line)] bg-[var(--cream)] p-0.5">
           {(
             [
               ["edit", "源码"],
@@ -475,7 +468,11 @@ export function EditorPane() {
             <button
               key={mode}
               onClick={() => setViewMode(mode as ViewMode)}
-              className={`rounded px-6 py-2.5 ${viewMode === mode ? "bg-white font-semibold shadow-sm" : "text-[var(--muted)]"}`}
+              className={`rounded-md px-3 py-1 text-[12px] ${
+                viewMode === mode
+                  ? "bg-white font-semibold text-[var(--ink)] shadow-xs"
+                  : "text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
               data-testid={`mode-${mode}`}
             >
               {label}
@@ -577,9 +574,9 @@ export function EditorPane() {
         </>
       )}
 
-      {/* 状态栏（原型 statusbar：字数/Markdown） */}
+      {/* 状态栏（视觉方案 §3.3：28px 高、浅米底，对齐原型 statusbar） */}
       <div
-        className="flex h-[36px] flex-none items-center gap-2 border-t border-[var(--line)] bg-[var(--card)] px-[18px] text-[12px] text-[var(--muted)]"
+        className="flex h-[28px] flex-none items-center gap-2 border-t border-[var(--line)] bg-[#fbf8f1] px-4 text-[11.5px] text-[var(--muted)]"
         data-testid="statusbar"
       >
         <span>共 {body.replace(/\s/g, "").length} 字</span>
